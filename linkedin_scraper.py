@@ -610,24 +610,41 @@ class LinkedInScraper:
                     is_early_applicant = False
                     listed_at = None
                     
+                    # Fallback 1: Check direct posting data (often contains accurate timestamps)
+                    if posting_data:
+                        ts_ms = posting_data.get('listedAt') or posting_data.get('createdAt') or posting_data.get('firstListedAt')
+                        if ts_ms:
+                            try:
+                                dt = datetime.fromtimestamp(ts_ms / 1000)
+                                listed_at = dt.strftime('%Y-%m-%d %H:%M:%S')
+                            except Exception: pass
+
                     footer_items = card.get('footerItems', [])
                     for item in footer_items:
-                        item_type = item.get('type')
+                        item_type = str(item.get('type', ''))
                         if item_type == 'EASY_APPLY_TEXT':
                             is_easy_apply = True
                         elif item_type == 'APPLICANT_COUNT_TEXT':
                             text = item.get('text', {}).get('text', '').lower()
                             if 'early applicant' in text:
                                 is_early_applicant = True
-                        elif item_type == 'LISTED_DATE':
+                        elif 'DATE' in item_type or 'TIME' in item_type:
                             # timeAt: 1768048639000 (ms)
-                            ts_ms = item.get('timeAt')
-                            if ts_ms:
+                            ts_ms = item.get('timeAt') or item.get('listedAt')
+                            if ts_ms and not listed_at:
                                 try:
                                     dt = datetime.fromtimestamp(ts_ms / 1000)
                                     listed_at = dt.strftime('%Y-%m-%d %H:%M:%S')
-                                except Exception:
-                                    listed_at = None
+                                except Exception: pass
+                    
+                    # Final fallback: If still None, check for any time-like fields in the card itself
+                    if not listed_at:
+                         ts_ms = card.get('listedAt') or card.get('timeAt')
+                         if ts_ms:
+                             try:
+                                 dt = datetime.fromtimestamp(ts_ms / 1000)
+                                 listed_at = dt.strftime('%Y-%m-%d %H:%M:%S')
+                             except Exception: pass
                     
                     # Check Actively Reviewing Status
                     is_actively_reviewing = False
