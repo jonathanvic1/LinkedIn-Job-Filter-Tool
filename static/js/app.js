@@ -48,6 +48,8 @@ async function apiFetch(url, options = {}) {
 document.addEventListener('DOMContentLoaded', () => {
     loadConfig();
     loadBlocklists();
+    loadHistory();
+    loadGeoCache();
     startStatusPolling();
 });
 
@@ -73,15 +75,11 @@ function switchTab(tabId) {
         el.classList.add('text-gray-400', 'hover:bg-gray-700');
     });
 
-    const btn = document.getElementById('btn-' + tabId);
     if (btn) {
         btn.classList.add('bg-gray-700', 'text-white', 'shadow-md', 'shadow-gray-900/20');
         btn.classList.remove('text-gray-400', 'hover:bg-gray-700'); // removed hover style to keep active state clean or keep it?
         // Actually keeping hover is fine, but usually active doesn't need hover bg change if it's already bg-gray-700
     }
-
-    if (tabId === 'history') loadHistory();
-    if (tabId === 'locations') loadGeoCache();
 }
 
 // API Interactions
@@ -212,7 +210,7 @@ let blocklistState = {
     company_linkedin: []
 };
 
-async function loadBlocklists() {
+async function loadBlocklists(manual = false) {
     try {
         const [titles, companies] = await Promise.all([
             apiFetch('/api/blocklist?filename=blocklist.txt').then(r => r.json()),
@@ -224,10 +222,10 @@ async function loadBlocklists() {
 
         renderBlocklist('job_title');
         renderBlocklist('company_linkedin');
-        showToast("Blocklists refreshed");
+        if (manual) showToast("Blocklists refreshed");
     } catch (e) {
         console.error("Failed to load blocklists", e);
-        showToast("Failed to refresh blocklists", true);
+        if (manual) showToast("Failed to refresh blocklists", true);
     }
 }
 
@@ -317,7 +315,7 @@ async function saveBlocklist(type) {
 }
 
 // History
-async function loadHistory(offset = 0) {
+async function loadHistory(offset = 0, manual = false) {
     historyOffset = offset;
     try {
         const res = await apiFetch(`/api/history?limit=${historyLimit}&offset=${historyOffset}`);
@@ -362,15 +360,15 @@ async function loadHistory(offset = 0) {
                 </div>
             `;
         }
-        if (offset === 0) showToast("History refreshed");
+        if (manual && offset === 0) showToast("History refreshed");
     } catch (e) {
         console.error(e);
-        showToast("Failed to refresh history", true);
+        if (manual) showToast("Failed to refresh history", true);
     }
 }
 
 // Locations (GeoID Cache)
-async function loadGeoCache() {
+async function loadGeoCache(manual = false) {
     try {
         const res = await apiFetch('/api/config'); // Ensure config is synced
         const cacheRes = await apiFetch('/api/geo_cache');
@@ -409,10 +407,10 @@ async function loadGeoCache() {
                 </tr>
             `).join('');
         }
-        showToast("Location cache refreshed");
+        if (manual) showToast("Location cache refreshed");
     } catch (e) {
         console.error("Failed to load geo cache", e);
-        showToast("Failed to refresh locations", true);
+        if (manual) showToast("Failed to refresh locations", true);
     }
 }
 
