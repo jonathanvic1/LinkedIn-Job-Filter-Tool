@@ -492,10 +492,13 @@
         <!-- Locations Tab -->
         <div id="locations" class="tab-content hidden h-full flex-col">
             <header class="page-header bg-gray-800 border-b border-gray-700 px-8 flex justify-between items-center">
-                <h2 class="text-xl font-bold text-white">Location Cache Management</h2>
+                <div>
+                    <h2 class="text-xl font-bold text-white">Location Cache</h2>
+                    <p class="text-xs text-gray-400 mt-0.5">Manage and correct cached geographic identifiers.</p>
+                </div>
                 <button onclick="loadGeoCache(true)" class="text-blue-400 hover:text-blue-300 text-sm">Refresh</button>
             </header>
-            <div class="flex-1 overflow-y-auto p-6 space-y-10">
+            <div class="flex-1 overflow-y-auto p-8 space-y-10">
                 <!-- Master GeoID Cache -->
                 <section>
                     <div class="flex items-center space-x-3 mb-4">
