@@ -404,14 +404,34 @@ async function loadGeoCache(manual = false) {
         if (candidates.length === 0) {
             ppTbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500 italic">No candidates found. Run a search to discover places.</td></tr>';
         } else {
-            ppTbody.innerHTML = candidates.map(cand => {
+            // Group by pp_id to show unique places
+            const groupedMap = new Map();
+            candidates.forEach(cand => {
+                if (!groupedMap.has(cand.pp_id)) {
+                    groupedMap.set(cand.pp_id, {
+                        ...cand,
+                        master_ids: new Set([cand.master_geo_id])
+                    });
+                } else {
+                    groupedMap.get(cand.pp_id).master_ids.add(cand.master_geo_id);
+                }
+            });
+
+            const uniqueCandidates = Array.from(groupedMap.values());
+
+            ppTbody.innerHTML = uniqueCandidates.map(cand => {
                 const activeFor = cache.filter(c => c.pp_id === cand.pp_id).map(c => c.query).join(', ');
                 const isActive = activeFor.length > 0;
 
                 return `
                     <tr class="hover:bg-gray-800 transition-colors ${isActive ? 'border-l-2 border-green-500/50 bg-green-500/5' : ''}">
                         <td class="px-6 py-4 text-xs font-mono text-blue-400">${cand.pp_id}</td>
-                        <td class="px-6 py-4 text-xs text-gray-300">${escapeHtml(cand.pp_name || 'N/A')}</td>
+                        <td class="px-6 py-4 text-xs text-gray-300">
+                            ${escapeHtml(cand.pp_name || 'N/A')}
+                            <div class="text-[10px] text-gray-600 mt-1 uppercase tracking-tighter">
+                                Masters: ${Array.from(cand.master_ids).join(', ')}
+                            </div>
+                        </td>
                         <td class="px-6 py-4 text-xs text-white font-medium">${escapeHtml(cand.pp_corrected_name || 'N/A')}</td>
                         <td class="px-6 py-4 flex space-x-3">
                             <button onclick="openCandidateModal('${cand.pp_id}', '${escapeHtml(cand.pp_name)}', '${escapeHtml(cand.pp_corrected_name || '')}')" 
