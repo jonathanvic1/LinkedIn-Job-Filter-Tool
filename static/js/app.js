@@ -4,6 +4,23 @@ let logInterval = null;
 let historyOffset = 0;
 let historyLimit = 50;
 
+// Toast Notification
+function showToast(message, isError = false) {
+    const existing = document.getElementById('toast-notification');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.id = 'toast-notification';
+    toast.className = `fixed bottom-6 right-6 px-5 py-3 rounded-lg shadow-xl text-sm font-medium z-50 transition-all transform translate-y-0 opacity-100 ${isError ? 'bg-red-600 text-white' : 'bg-green-600 text-white'}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+    }, 2500);
+}
+
 // Auth Fetch Helper
 async function apiFetch(url, options = {}) {
     const token = await authClient.getSessionToken();
@@ -282,12 +299,12 @@ async function saveBlocklist(type) {
             body: JSON.stringify({ filename, content })
         });
         if (res.ok) {
-            alert(`${type === 'job_title' ? 'Job titles' : 'Companies'} saved successfully!`);
+            showToast(`${type === 'job_title' ? 'Job titles' : 'Companies'} saved successfully!`);
         } else {
             throw new Error('Save failed');
         }
     } catch (e) {
-        alert('Failed to save changes');
+        showToast('Failed to save changes', true);
     }
 }
 
