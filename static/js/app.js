@@ -485,7 +485,6 @@ async function loadGeoCache(manual = false) {
                             <button onclick="openCandidateModal('${cand.pp_id}', '${escapeHtml(cand.pp_name)}', '${escapeHtml(cand.pp_corrected_name || '')}')" 
                                     class="text-blue-400 hover:text-blue-300 text-xs font-medium">Correct</button>
                             <button onclick="clearGeoCandidate(${cand.pp_id})" class="text-red-400 hover:text-red-300 text-xs font-medium">Clear</button>
-                            ${isActive ? `<button onclick="clearGeoOverride('${cand.pp_id}')" class="text-gray-400 hover:text-gray-300 text-xs font-medium">Reset Override</button>` : ''}
                         </td>
                     </tr>
                 `;
@@ -604,10 +603,24 @@ async function openCorrectionModal(query, masterId) {
         const res = await apiFetch(`/api/geo_candidates/${masterId}`);
         const candidates = await res.json();
 
+        let listHtml = `
+            <button onclick="applyGeoOverrideDirect('${masterId}', null)" 
+                class="w-full text-left p-4 rounded-xl border border-dashed border-gray-700 hover:border-red-500 hover:bg-red-500/5 transition-all group mb-4">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="text-gray-400 font-medium group-hover:text-red-400 transition-colors italic">Clear Choice (Use Regional Level)</p>
+                    </div>
+                    <svg class="w-5 h-5 text-gray-600 group-hover:text-red-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                </div>
+            </button>
+        `;
+
         if (candidates.length === 0) {
-            listEl.innerHTML = '<p class="text-center py-4 text-red-400">No candidates found in cache. Run a fresh search first.</p>';
+            listEl.innerHTML = listHtml + '<p class="text-center py-4 text-red-400">No candidates found in cache. Run a fresh search first.</p>';
         } else {
-            listEl.innerHTML = candidates.map(c => `
+            listEl.innerHTML = listHtml + candidates.map(c => `
                 <button onclick="applyGeoOverride('${query}', '${c.id}')" 
                     class="w-full text-left p-4 rounded-xl border border-gray-700 hover:border-blue-500 hover:bg-blue-500/10 transition-all group">
                     <div class="flex justify-between items-center">
