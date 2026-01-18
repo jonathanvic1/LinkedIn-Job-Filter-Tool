@@ -233,8 +233,13 @@ function renderBlocklist(type) {
     const list = blocklistState[type];
     const containerId = type === 'job_title' ? 'titles-list-container' : 'companies-list-container';
     const searchId = type === 'job_title' ? 'search-title-input' : 'search-company-input';
+    const countId = type === 'job_title' ? 'title-count' : 'company-count';
     const container = document.getElementById(containerId);
     if (!container) return;
+
+    // Update count badge
+    const countEl = document.getElementById(countId);
+    if (countEl) countEl.textContent = list.length;
 
     const searchTerm = document.getElementById(searchId).value.toLowerCase();
     const filtered = list.filter(item => item.toLowerCase().includes(searchTerm));
@@ -243,6 +248,7 @@ function renderBlocklist(type) {
         container.innerHTML = `<div class="text-center py-10 text-gray-700 italic text-xs">No items found${searchTerm ? ' matching search' : ''}</div>`;
         return;
     }
+
 
     container.innerHTML = filtered.map((item, index) => {
         // Find original index in state for deletion/edit
