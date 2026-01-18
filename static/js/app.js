@@ -392,13 +392,15 @@ async function loadGeoCache(manual = false) {
         const refinedData = cache.filter(row => row.pp_id);
 
         if (refinedData.length === 0) {
-            ppTbody.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-gray-500 italic">No refined locations cached yet. Start a search to populate.</td></tr>';
+            ppTbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500 italic">No refined locations cached yet. Start a search to populate.</td></tr>';
         } else {
             ppTbody.innerHTML = refinedData.map(row => `
                 <tr class="hover:bg-gray-800 transition-colors border-l-2 border-green-500/30">
                     <td class="px-6 py-4 font-mono text-xs text-blue-300 font-medium">${row.query}</td>
                     <td class="px-6 py-4 text-xs font-mono text-gray-500">${escapeHtml(row.master_id)}</td>
-                    <td class="px-6 py-4 text-xs font-mono text-green-400">${escapeHtml(row.pp_id)}</td>
+                    <td class="px-6 py-4 text-xs font-mono text-green-400 font-semibold">${escapeHtml(row.pp_id)}</td>
+                    <td class="px-6 py-4 text-xs text-gray-300">${escapeHtml(row.pp_name || 'N/A')}</td>
+                    <td class="px-6 py-4 text-xs text-white font-medium">${escapeHtml(row.pp_corrected_name || 'N/A')}</td>
                     <td class="px-6 py-4 flex space-x-3">
                         <button onclick="openCorrectionModal('${row.query}', '${row.master_id}')" class="text-blue-400 hover:text-blue-300 text-xs font-medium">Correct</button>
                         <button onclick="deleteGeoCacheEntry('${row.query}')" class="text-red-400 hover:text-red-300 text-xs font-medium">Clear</button>

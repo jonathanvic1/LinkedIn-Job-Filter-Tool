@@ -184,21 +184,37 @@ class Database:
         if not self.client: return []
         try:
             response = self.client.table("geo_cache").select("*").order("location_query", desc=False).execute()
+            # Load all candidates at once to avoid N+1 queries
+            all_candidates = []
+            try:
+                cand_res = self.client.table("geo_candidates").select("*").execute()
+                all_candidates = cand_res.data
+            except:
+                pass
+
             cache = []
             for row in response.data:
                 master_id = row.get('master_geo_id')
+                pp_id = row.get('populated_place_id')
+                
                 # Count candidates for this master_id
-                place_count = 0
-                if master_id:
-                    try:
-                        count_res = self.client.table("geo_candidates").select("*", count="exact", head=True).eq("master_geo_id", master_id).execute()
-                        place_count = count_res.count or 0
-                    except:
-                        pass
+                place_count = len([c for c in all_candidates if c.get('master_geo_id') == master_id])
+                
+                # Get specific names if refined
+                pp_name = None
+                pp_corrected_name = None
+                if pp_id:
+                    match = next((c for c in all_candidates if c.get('pp_id') == pp_id and c.get('master_geo_id') == master_id), None)
+                    if match:
+                        pp_name = match.get('pp_name')
+                        pp_corrected_name = match.get('pp_corrected_name')
+
                 cache.append({
                     "query": row.get('location_query', '').title(),
                     "master_id": master_id,
-                    "pp_id": row.get('populated_place_id'),
+                    "pp_id": pp_id,
+                    "pp_name": pp_name,
+                    "pp_corrected_name": pp_corrected_name,
                     "place_count": place_count
                 })
             return cache
