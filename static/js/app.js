@@ -377,6 +377,7 @@ async function loadGeoCache() {
             <tr class="hover:bg-gray-800 transition-colors">
                 <td class="px-6 py-4 font-mono text-xs text-blue-300 font-medium">${escapeHtml(row.query)}</td>
                 <td class="px-6 py-4 text-xs font-mono text-gray-400">${escapeHtml(row.master_id)}</td>
+                <td class="px-6 py-4 text-xs font-mono text-gray-500">${row.place_count || 0}</td>
                 <td class="px-6 py-4">
                     <button onclick="deleteGeoCacheEntry('${row.query}')" class="text-red-400 hover:text-red-300 text-xs font-medium">Delete</button>
                 </td>

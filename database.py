@@ -189,11 +189,21 @@ class Database:
             response = self.client.table("geo_cache").select("*").order("location_query", desc=False).execute()
             cache = []
             for row in response.data:
+                master_id = row.get('master_geo_id')
+                # Count candidates for this master_id
+                place_count = 0
+                if master_id:
+                    try:
+                        count_res = self.client.table("geo_candidates").select("*", count="exact", head=True).eq("master_geo_id", master_id).execute()
+                        place_count = count_res.count or 0
+                    except:
+                        pass
                 cache.append({
                     "query": row.get('location_query', '').title(),
-                    "master_id": row.get('master_geo_id'),
+                    "master_id": master_id,
                     "pp_id": row.get('populated_place_id'),
-                    "name": row.get('place_name')
+                    "name": row.get('place_name'),
+                    "place_count": place_count
                 })
             return cache
         except Exception as e:
