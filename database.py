@@ -46,7 +46,6 @@ class Database:
             "company": company,
             "location": location,
             "dismiss_reason": reason,
-            "job_url": job_url,
             "company_linkedin": company_url,
             "is_reposted": is_reposted,
             "listed_at": listed_at,
@@ -165,8 +164,7 @@ class Database:
                     "company": row.get('company'),
                     "location": row.get('location'),
                     "reason": row.get('dismiss_reason'),
-                    "date": row.get('dismissed_at'),
-                    "url": row.get('job_url')
+                    "date": row.get('dismissed_at')
                 })
             return history
         except Exception as e:

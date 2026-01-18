@@ -333,7 +333,7 @@ async function loadHistory(offset = 0) {
                 </td>
                 <td class="px-6 py-4 text-gray-500 text-xs">${new Date(row.date).toLocaleString()}</td>
                 <td class="px-6 py-4">
-                    <a href="${row.url}" target="_blank" class="text-blue-400 hover:text-blue-300 hover:underline text-xs">View Job</a>
+                    <a href="https://www.linkedin.com/jobs/view/${row.job_id}" target="_blank" class="text-blue-400 hover:text-blue-300 hover:underline text-xs">View Job</a>
                 </td>
             </tr>
         `).join('');
