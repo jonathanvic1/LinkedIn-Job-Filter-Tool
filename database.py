@@ -201,6 +201,19 @@ class Database:
              print(f"   ⚠️ DB Error (get_earliest_duplicate): {e}")
         return None
 
+    def get_jobs_by_title_company(self, title_pattern, company_pattern):
+        if not self.client: return []
+        try:
+            response = self.client.table("dismissed_jobs")\
+                .select("job_id, title, company")\
+                .ilike("title", title_pattern)\
+                .ilike("company", company_pattern)\
+                .execute()
+            return response.data
+        except Exception as e:
+            print(f"⚠️ DB Error (get_jobs_by_title_company): {e}")
+            return []
+
     def get_history(self, limit=50, offset=0):
         if not self.client: return []
         try:

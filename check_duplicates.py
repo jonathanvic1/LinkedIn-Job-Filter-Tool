@@ -4,24 +4,23 @@ import argparse
 import sys
 
 def check_duplicates(target_title, target_company):
+    from database import db
     scraper = LinkedInScraper()
     scraper.load_cookies()
     
-    print(f"🔍 Querying DB for '{target_title}' at '{target_company}'...")
+    print(f"🔍 Querying Supabase for '{target_title}' at '{target_company}'...")
     
-    # Use LIKE to handle trailing spaces or non-breaking spaces seen in DB output
-    # Adding % wildcard to end of terms
-    company_term = target_company.strip() + '%'
-    title_term = target_title.strip() + '%'
+    # Supabase ilike uses % as wildcard
+    title_pattern = f"%{target_title.strip()}%"
+    company_pattern = f"%{target_company.strip()}%"
     
-    scraper.cursor.execute(
-        "SELECT job_id, title, company FROM dismissed_jobs WHERE company LIKE ? AND title LIKE ?", 
-        (company_term, title_term)
-    )
-    jobs = scraper.cursor.fetchall()
+    jobs_data = db.get_jobs_by_title_company(title_pattern, company_pattern)
+    
+    # Convert to list of tuples for compatibility with existing loop
+    jobs = [(j['job_id'], j['title'], j['company']) for j in jobs_data]
     
     if not jobs:
-        print(f"❌ No jobs found in DB matching Title='{target_title}' and Company='{target_company}'.")
+        print(f"❌ No jobs found in Supabase matching Title='{target_title}' and Company='{target_company}'.")
         return
 
     print(f"✅ Found {len(jobs)} jobs in DB.")
