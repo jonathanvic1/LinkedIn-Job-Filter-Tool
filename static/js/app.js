@@ -452,6 +452,7 @@ async function saveCandidateNameUpdate() {
     try {
         const res = await apiFetch('/api/geo_candidate/update', {
             method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ pp_id: currentCandidatePpId, corrected_name: correctedName })
         });
         if (res.ok) {
@@ -495,6 +496,7 @@ async function applyGeoOverrideDirect(masterId, ppId) {
 
         const updateRes = await apiFetch('/api/geo_cache_override', {
             method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ query: entry.query, pp_id: ppId })
         });
 
