@@ -18,7 +18,7 @@ function showToast(message, isError = false) {
     setTimeout(() => {
         toast.classList.add('opacity-0', 'translate-y-2');
         setTimeout(() => toast.remove(), 300);
-    }, 2500);
+    }, 1500);
 }
 
 // Auth Fetch Helper
