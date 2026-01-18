@@ -309,9 +309,11 @@ class LinkedInScraper:
                             if f.get('parameterName') == 'populatedPlace':
                                 values = f.get('secondaryFilterValues', [])
                                 for val in values:
+                                    display_name = val.get('displayName', '')
                                     candidates.append({
                                         'id': val.get('value'),
-                                        'name': val.get('displayName')
+                                        'name': display_name,
+                                        'corrected_name': val.get('accessibilityText') or display_name
                                     })
                                     
                 if candidates:

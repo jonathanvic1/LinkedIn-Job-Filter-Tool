@@ -446,7 +446,7 @@ async function openCorrectionModal(query, masterId) {
                 <button onclick="applyGeoOverride('${query}', '${c.id}')" 
                     class="w-full text-left p-4 rounded-xl border border-gray-700 hover:border-blue-500 hover:bg-blue-500/10 transition-all group">
                     <div class="flex justify-between items-center">
-                        <span class="text-white font-medium group-hover:text-blue-300">${escapeHtml(c.name)}</span>
+                        <span class="text-white font-medium group-hover:text-blue-300">${escapeHtml(c.corrected_name || c.name)}</span>
                         <span class="text-xs font-mono text-gray-500">${escapeHtml(c.id)}</span>
                     </div>
                 </button>

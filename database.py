@@ -104,7 +104,7 @@ class Database:
         if not self.client: return []
         try:
             response = self.client.table("geo_candidates").select("*").eq("master_geo_id", master_geo_id).execute()
-            return [{"id": r['pp_id'], "name": r['pp_name']} for r in response.data]
+            return [{"id": r['pp_id'], "name": r['pp_name'], "corrected_name": r.get('pp_corrected_name')} for r in response.data]
         except Exception as e:
             print(f"   ⚠️ DB Error (get_geo_candidates): {e}")
             return []
@@ -116,7 +116,8 @@ class Database:
             rows.append({
                 "master_geo_id": master_geo_id,
                 "pp_id": c['id'],
-                "pp_name": c['name']
+                "pp_name": c['name'],
+                "pp_corrected_name": c.get('corrected_name') or c['name']
             })
         if rows:
             try:
