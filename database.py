@@ -107,7 +107,7 @@ class Database:
             # PostgREST expects an array literal or list for .contains()
             response = self.client.table("geo_candidates")\
                 .select("*")\
-                .contains("master_geo_id", [int(master_geo_id)])\
+                .contains("master_geo_id", [str(master_geo_id)])\
                 .execute()
             return [{"id": r['pp_id'], "name": r['pp_name'], "corrected_name": r.get('pp_corrected_name')} for r in response.data]
         except Exception as e:
