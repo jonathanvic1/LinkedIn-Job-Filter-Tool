@@ -11,15 +11,17 @@ function showToast(message, isError = false) {
 
     const toast = document.createElement('div');
     toast.id = 'toast-notification';
-    toast.className = `fixed bottom-6 right-6 px-5 py-3 rounded-lg shadow-xl text-sm font-medium z-50 transition-all duration-300 transform translate-y-0 opacity-100 ${isError ? 'bg-red-600 text-white' : 'bg-green-600 text-white'}`;
+    // Use pointer-events-none so it doesn't block clicks, and transition only opacity/transform
+    toast.className = `fixed bottom-6 right-6 px-5 py-3 rounded-lg shadow-xl text-sm font-medium z-50 pointer-events-none transition-[opacity,transform] duration-200 transform translate-y-0 opacity-100 ${isError ? 'bg-red-600 text-white' : 'bg-green-600 text-white'}`;
     toast.textContent = message;
     document.body.appendChild(toast);
 
+    // Faster disappearance
     setTimeout(() => {
-        toast.classList.replace('translate-y-0', 'translate-y-4');
         toast.classList.replace('opacity-100', 'opacity-0');
-        setTimeout(() => toast.remove(), 300);
-    }, 1500);
+        toast.classList.replace('translate-y-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 200);
+    }, 1000);
 }
 
 // Auth Fetch Helper
