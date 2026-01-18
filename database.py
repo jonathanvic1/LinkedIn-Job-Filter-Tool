@@ -79,10 +79,16 @@ class Database:
 
     def save_geo_cache(self, location_query, master_geo_id, populated_place_id):
         if not self.client: return
+        # Self-healing: if pp_id matches master_id, it's a regional query, not a city-level one
+        master_id_int = int(master_geo_id) if master_geo_id else None
+        pp_id_int = int(populated_place_id) if populated_place_id else None
+        if pp_id_int and master_id_int and pp_id_int == master_id_int:
+            pp_id_int = None
+
         data = {
             "location_query": location_query.strip().title(),
-            "master_geo_id": int(master_geo_id) if master_geo_id else None,
-            "populated_place_id": int(populated_place_id) if populated_place_id else None,
+            "master_geo_id": master_id_int,
+            "populated_place_id": pp_id_int,
             # updated_at defaults to NOW()
         }
         try:
@@ -93,8 +99,15 @@ class Database:
     def update_geo_cache_override(self, location_query, populated_place_id):
          if not self.client: return
          try:
+             # Self-healing: Fetch master_id to compare
+             existing = self.client.table("geo_cache").select("master_geo_id").eq("location_query", location_query.strip().title()).execute()
+             if existing.data:
+                 master_id = existing.data[0].get('master_geo_id')
+                 if master_id and int(populated_place_id) == int(master_id):
+                     populated_place_id = None
+
              self.client.table("geo_cache").update({
-                 "populated_place_id": populated_place_id,
+                 "populated_place_id": int(populated_place_id) if populated_place_id else None,
                  "updated_at": "now()"
              }).eq("location_query", location_query.strip().title()).execute()
          except Exception as e:
