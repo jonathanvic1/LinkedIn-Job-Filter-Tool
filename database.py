@@ -127,19 +127,35 @@ class Database:
 
     def save_geo_candidates(self, master_geo_id, candidates):
         if not self.client: return
-        rows = []
-        for c in candidates:
-            rows.append({
-                "master_geo_id": master_geo_id,
-                "pp_id": c['id'],
-                "pp_name": c['name'],
-                "pp_corrected_name": c.get('corrected_name') or c['name']
-            })
-        if rows:
-            try:
-                self.client.table("geo_candidates").upsert(rows).execute()
-            except Exception as e:
-                print(f"   ⚠️ DB Error (save_geo_candidates): {e}")
+        
+        try:
+            # 1. Fetch existing candidates for these pp_ids
+            pp_ids = [c['id'] for c in candidates]
+            response = self.client.table("geo_candidates").select("pp_id, master_geo_id").in_("pp_id", pp_ids).execute()
+            existing_map = {row['pp_id']: row['master_geo_id'] for row in response.data} if response.data else {}
+
+            rows = []
+            for c in candidates:
+                pp_id = c['id']
+                existing_masters = existing_map.get(pp_id, "")
+                
+                # Merge master_geo_ids
+                master_set = set(existing_masters.split(",")) if existing_masters else set()
+                master_set.add(master_geo_id)
+                consolidated_masters = ",".join(sorted([m for m in master_set if m.strip()]))
+
+                rows.append({
+                    "master_geo_id": consolidated_masters,
+                    "pp_id": pp_id,
+                    "pp_name": c['name'],
+                    "pp_corrected_name": c.get('corrected_name') or c['name']
+                })
+            
+            if rows:
+                self.client.table("geo_candidates").upsert(rows, on_conflict="pp_id").execute()
+                
+        except Exception as e:
+            print(f"   ⚠️ DB Error (save_geo_candidates): {e}")
                 
     def get_candidate_by_corrected_name(self, name):
         if not self.client: return None
@@ -153,7 +169,11 @@ class Database:
                 .execute()
             
             if response.data:
-                return response.data[0]
+                data = response.data[0]
+                master_ids = data.get('master_geo_id', '')
+                # Take first ID if multiple exist
+                data['master_geo_id'] = master_ids.split(',')[0] if master_ids else ''
+                return data
             return None
         except Exception as e:
             print(f"   ⚠️ DB Error (get_candidate_by_corrected_name): {e}")

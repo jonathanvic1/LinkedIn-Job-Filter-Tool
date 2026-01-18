@@ -428,9 +428,6 @@ async function loadGeoCache(manual = false) {
                         <td class="px-6 py-4 text-xs font-mono text-blue-400">${cand.pp_id}</td>
                         <td class="px-6 py-4 text-xs text-gray-300">
                             ${escapeHtml(cand.pp_name || 'N/A')}
-                            <div class="text-[10px] text-gray-600 mt-1 uppercase tracking-tighter">
-                                Masters: ${Array.from(cand.master_ids).join(', ')}
-                            </div>
                         </td>
                         <td class="px-6 py-4 text-xs text-white font-medium">${escapeHtml(cand.pp_corrected_name || 'N/A')}</td>
                         <td class="px-6 py-4 flex space-x-3">
