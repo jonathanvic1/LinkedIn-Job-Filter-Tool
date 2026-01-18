@@ -378,11 +378,14 @@ async function loadHistory(offset = 0, manual = false) {
 // Locations (GeoID Cache)
 async function loadGeoCache(manual = false) {
     try {
-        const res = await apiFetch('/api/config'); // Ensure config is synced
-        const cacheRes = await apiFetch('/api/geo_cache');
+        const [cacheRes, candidatesRes] = await Promise.all([
+            apiFetch('/api/geo_cache'),
+            apiFetch('/api/geo_candidates')
+        ]);
         const cache = await cacheRes.json();
+        const candidates = await candidatesRes.json();
 
-        // 1. Master GeoID Cache
+        // 1. GEO IDS Table
         const masterTbody = document.getElementById('master-geo-table-body');
         masterTbody.innerHTML = cache.map(row => `
             <tr class="hover:bg-gray-800 transition-colors">
@@ -395,31 +398,63 @@ async function loadGeoCache(manual = false) {
             </tr>
         `).join('');
 
-        // 2. Refined Place Cache (Only if pp_id exists)
+        // 2. POPULATED PLACES Table (Full Candidates List)
         const ppTbody = document.getElementById('pp-cache-table-body');
-        const refinedData = cache.filter(row => row.pp_id);
 
-        if (refinedData.length === 0) {
-            ppTbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500 italic">No refined locations cached yet. Start a search to populate.</td></tr>';
+        if (candidates.length === 0) {
+            ppTbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500 italic">No candidates found. Run a search to discover places.</td></tr>';
         } else {
-            ppTbody.innerHTML = refinedData.map(row => `
-                <tr class="hover:bg-gray-800 transition-colors border-l-2 border-green-500/30">
-                    <td class="px-6 py-4 font-mono text-xs text-blue-300 font-medium">${row.query}</td>
-                    <td class="px-6 py-4 text-xs font-mono text-gray-500">${escapeHtml(row.master_id)}</td>
-                    <td class="px-6 py-4 text-xs font-mono text-green-400 font-semibold">${escapeHtml(row.pp_id)}</td>
-                    <td class="px-6 py-4 text-xs text-gray-300">${escapeHtml(row.pp_name || 'N/A')}</td>
-                    <td class="px-6 py-4 text-xs text-white font-medium">${escapeHtml(row.pp_corrected_name || 'N/A')}</td>
-                    <td class="px-6 py-4 flex space-x-3">
-                        <button onclick="openCorrectionModal('${row.query}', '${row.master_id}')" class="text-blue-400 hover:text-blue-300 text-xs font-medium">Correct</button>
-                        <button onclick="deleteGeoCacheEntry('${row.query}')" class="text-red-400 hover:text-red-300 text-xs font-medium">Clear</button>
-                    </td>
-                </tr>
-            `).join('');
+            ppTbody.innerHTML = candidates.map(cand => {
+                const activeFor = cache.filter(c => c.pp_id === cand.pp_id).map(c => c.query).join(', ');
+                const isActive = activeFor.length > 0;
+
+                return `
+                    <tr class="hover:bg-gray-800 transition-colors ${isActive ? 'border-l-2 border-green-500/50 bg-green-500/5' : ''}">
+                        <td class="px-6 py-4 text-xs ${isActive ? 'text-green-400 font-bold' : 'text-gray-500'}">
+                            ${isActive ? `Active: ${activeFor}` : 'Inactive'}
+                        </td>
+                        <td class="px-6 py-4 text-xs font-mono text-gray-500">${cand.master_geo_id}</td>
+                        <td class="px-6 py-4 text-xs font-mono text-blue-400">${cand.pp_id}</td>
+                        <td class="px-6 py-4 text-xs text-gray-300">${escapeHtml(cand.pp_name || 'N/A')}</td>
+                        <td class="px-6 py-4 text-xs text-white font-medium">${escapeHtml(cand.pp_corrected_name || 'N/A')}</td>
+                        <td class="px-6 py-4">
+                            <button onclick="applyGeoOverrideDirect('${cand.master_geo_id}', '${cand.pp_id}')" 
+                                    class="text-blue-400 hover:text-blue-300 text-xs font-medium">Use for Master</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
         }
         if (manual) showToast("Location cache refreshed");
     } catch (e) {
         console.error("Failed to load geo cache", e);
         if (manual) showToast("Failed to refresh locations", true);
+    }
+}
+
+// New helper for direct override from candidate list
+async function applyGeoOverrideDirect(masterId, ppId) {
+    try {
+        const res = await apiFetch('/api/geo_cache');
+        const cache = await res.json();
+        const entry = cache.find(c => c.master_id === masterId);
+
+        if (!entry) {
+            showToast("No active search query found for this Master ID", true);
+            return;
+        }
+
+        const updateRes = await apiFetch('/api/geo_cache_override', {
+            method: 'POST',
+            body: JSON.stringify({ query: entry.query, pp_id: ppId })
+        });
+
+        if (updateRes.ok) {
+            showToast(`Updated ${entry.query} to use ${ppId}`);
+            loadGeoCache();
+        }
+    } catch (e) {
+        showToast("Failed to update override", true);
     }
 }
 

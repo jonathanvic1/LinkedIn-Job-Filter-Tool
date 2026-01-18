@@ -322,6 +322,10 @@ def override_geo_cache(req: OverrideRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/geo_candidates")
+def get_all_geo_candidates():
+    return db.get_all_geo_candidates()
+
 @app.delete("/api/geo_cache/{query}")
 def delete_geo_cache_entry(query: str):
     try:

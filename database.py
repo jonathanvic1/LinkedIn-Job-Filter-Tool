@@ -109,6 +109,15 @@ class Database:
             print(f"   ⚠️ DB Error (get_geo_candidates): {e}")
             return []
 
+    def get_all_geo_candidates(self):
+        if not self.client: return []
+        try:
+            response = self.client.table("geo_candidates").select("*").order("master_geo_id").order("pp_name").execute()
+            return response.data
+        except Exception as e:
+            print(f"   ⚠️ DB Error (get_all_geo_candidates): {e}")
+            return []
+
     def save_geo_candidates(self, master_geo_id, candidates):
         if not self.client: return
         rows = []
