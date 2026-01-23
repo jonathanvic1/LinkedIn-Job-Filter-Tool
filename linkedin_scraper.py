@@ -53,7 +53,8 @@ class LinkedInScraper:
                  relevant: bool = False,
                  time_filter: str = 'all',
                  easy_apply: bool = False,
-                 workplace_type: List[int] = None):
+                 workplace_type: List[int] = None,
+                 user_id: str = None):
         self.keywords = keywords
         self.location = location
         self.limit_jobs = limit_jobs
@@ -74,6 +75,7 @@ class LinkedInScraper:
         self.relevant = relevant
         self.time_filter = time_filter
         self.workplace_type = workplace_type if workplace_type else []
+        self.user_id = user_id
         
         # Create logs directory if it doesn't exist - SKIPPED FOR VERCEL
         # os.makedirs('logs', exist_ok=True)
@@ -143,7 +145,7 @@ class LinkedInScraper:
 
     def save_dismissed_job(self, job_id, title, company, location, reason, job_url, company_url, is_reposted=False, listed_at=None):
         """Save dismissed job to database."""
-        db.save_dismissed_job(job_id, title, company, location, reason, None, company_url, is_reposted, listed_at)
+        db.save_dismissed_job(job_id, title, company, location, reason, None, company_url, is_reposted, listed_at, self.user_id)
             
     def delete_dismissed_job(self, job_id):
         """Remove a job from the dismissed jobs database."""

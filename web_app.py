@@ -129,8 +129,14 @@ class SearchParams(BaseModel):
 class BlocklistUpdate(BaseModel):
     filename: str # "blocklist.txt" or "blocklist_companies.txt"
     content: str
-    
+
 # --- Helper Functions ---
+
+def get_user_id(request: Request) -> str:
+    """Extract user_id from authenticated request."""
+    if hasattr(request.state, 'user') and request.state.user:
+        return request.state.user.id
+    return None
 
 def log_message(msg: str):
     """Add a message to the global log buffer."""
@@ -164,7 +170,7 @@ class LogInterceptor:
 
 # --- Scraper Runner Thread ---
 
-def run_scraper_thread(params: SearchParams):
+def run_scraper_thread(params: SearchParams, user_id: str = None):
     state.running = True
     state.stop_event.clear()
     state.scraped_jobs = []
@@ -174,10 +180,10 @@ def run_scraper_thread(params: SearchParams):
     
     log_message("🚀 Starting Scraper Background Thread...")
     
-    # Read blocklists from Supabase
+    # Read blocklists from Supabase (user-specific)
     try:
-        block_titles = db.get_blocklist("job_title")
-        block_companies = db.get_blocklist("company_linkedin")
+        block_titles = db.get_blocklist("job_title", user_id)
+        block_companies = db.get_blocklist("company_linkedin", user_id)
     except Exception as e:
         log_message(f"⚠️ Error reading blocklists from Supabase: {e}")
         block_titles = []
@@ -194,7 +200,8 @@ def run_scraper_thread(params: SearchParams):
             relevant=params.relevant,
             time_filter=params.time_range,
             easy_apply=params.easy_apply,
-            workplace_type=params.workplace_type
+            workplace_type=params.workplace_type,
+            user_id=user_id
         )
         state.scraper_instance = scraper
         
@@ -227,11 +234,12 @@ sys.stdout = LogInterceptor()
 # --- API Endpoints ---
 
 @app.post("/api/start")
-def start_scraper(params: SearchParams):
+def start_scraper(params: SearchParams, request: Request):
     if state.running:
         raise HTTPException(status_code=400, detail="Scraper is already running")
     
-    thread = threading.Thread(target=run_scraper_thread, args=(params,))
+    user_id = get_user_id(request)
+    thread = threading.Thread(target=run_scraper_thread, args=(params, user_id))
     thread.daemon = True
     thread.start()
     return {"status": "started"}
@@ -284,25 +292,28 @@ def get_config():
     }
 
 @app.get("/api/blocklist")
-def get_blocklist(filename: str):
+def get_blocklist(filename: str, request: Request):
+    user_id = get_user_id(request)
     name = "job_title" if filename == "blocklist.txt" else "company_linkedin"
-    items = db.get_blocklist(name)
+    items = db.get_blocklist(name, user_id)
     return {"content": "\n".join(items)}
 
 @app.post("/api/blocklist")
-def save_blocklist(update: BlocklistUpdate):
+def save_blocklist(update: BlocklistUpdate, request: Request):
+    user_id = get_user_id(request)
     name = "job_title" if update.filename == "blocklist.txt" else "company_linkedin"
     items = update.content.split("\n")
     try:
-        db.update_blocklist(name, items)
+        db.update_blocklist(name, items, user_id)
         return {"status": "saved"}
     except Exception as e:
         return {"status": "error", "detail": str(e)}
 
 @app.get("/api/history")
-def get_history(limit: int = 50, offset: int = 0):
-    data = db.get_history(limit, offset)
-    total = db.get_history_count()
+def get_history(request: Request, limit: int = 50, offset: int = 0):
+    user_id = get_user_id(request)
+    data = db.get_history(limit, offset, user_id)
+    total = db.get_history_count(user_id)
     return {
         "items": data,
         "total": total,

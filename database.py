@@ -29,16 +29,19 @@ class Database:
                 print(f"❌ Failed to initialize Supabase: {e}")
                 self.client = None
 
-    def is_job_dismissed(self, job_id):
+    def is_job_dismissed(self, job_id, user_id=None):
         if not self.client: return False
         try:
-            response = self.client.table("dismissed_jobs").select("job_id").eq("job_id", job_id).execute()
+            query = self.client.table("dismissed_jobs").select("job_id").eq("job_id", job_id)
+            if user_id:
+                query = query.eq("user_id", user_id)
+            response = query.execute()
             return len(response.data) > 0
         except Exception as e:
             print(f"⚠️ DB Error (is_job_dismissed): {e}")
             return False
 
-    def save_dismissed_job(self, job_id, title, company, location, reason, job_url, company_url, is_reposted=False, listed_at=None):
+    def save_dismissed_job(self, job_id, title, company, location, reason, job_url, company_url, is_reposted=False, listed_at=None, user_id=None):
         if not self.client: return
         data = {
             "job_id": job_id,
@@ -51,6 +54,8 @@ class Database:
             "listed_at": listed_at,
             # dismissed_at defaults to NOW() in DB
         }
+        if user_id:
+            data["user_id"] = user_id
         try:
             self.client.table("dismissed_jobs").upsert(data).execute()
             print(f"   💾 Saved to Supabase: {title}")
@@ -245,12 +250,13 @@ class Database:
             print(f"⚠️ DB Error (get_jobs_by_title_company): {e}")
             return []
 
-    def get_history(self, limit=50, offset=0):
+    def get_history(self, limit=50, offset=0, user_id=None):
         if not self.client: return []
         try:
-            response = self.client.table("dismissed_jobs")\
-                .select("*")\
-                .order("dismissed_at", desc=True)\
+            query = self.client.table("dismissed_jobs").select("*")
+            if user_id:
+                query = query.eq("user_id", user_id)
+            response = query\
                 .order("dismissed_at", desc=True)\
                 .range(offset, offset + limit - 1)\
                 .execute()
@@ -270,13 +276,15 @@ class Database:
             return history
         except Exception as e:
             print(f"DB Error (history): {e}")
-            print(f"DB Error (history): {e}")
             return []
 
-    def get_history_count(self):
+    def get_history_count(self, user_id=None):
         if not self.client: return 0
         try:
-            response = self.client.table("dismissed_jobs").select("*", count="exact", head=True).execute()
+            query = self.client.table("dismissed_jobs").select("*", count="exact", head=True)
+            if user_id:
+                query = query.eq("user_id", user_id)
+            response = query.execute()
             return response.count
         except Exception as e:
             print(f"DB Error (history count): {e}")
@@ -330,26 +338,32 @@ class Database:
         except Exception as e:
             raise e
 
-    def get_blocklist(self, name):
+    def get_blocklist(self, name, user_id=None):
         """Fetch blocklist items by name ('job_title' or 'company_linkedin')"""
         if not self.client: return []
         try:
-            res = self.client.table("blocklists").select("item").eq("blocklist_type", name).execute()
+            query = self.client.table("blocklists").select("item").eq("blocklist_type", name)
+            if user_id:
+                query = query.eq("user_id", user_id)
+            res = query.execute()
             return [row['item'] for row in res.data]
         except Exception as e:
             print(f"⚠️ DB Error (get_blocklist {name}): {e}")
             return []
 
-    def update_blocklist(self, name, items):
+    def update_blocklist(self, name, items, user_id=None):
         """Replace the entire blocklist for a given name."""
         if not self.client: return
         try:
-            # 1. Clear existing
-            self.client.table("blocklists").delete().eq("blocklist_type", name).execute()
+            # 1. Clear existing for this user
+            query = self.client.table("blocklists").delete().eq("blocklist_type", name)
+            if user_id:
+                query = query.eq("user_id", user_id)
+            query.execute()
             
             # 2. Insert new
             if items:
-                rows = [{"blocklist_type": name, "item": item.strip()} for item in items if item.strip()]
+                rows = [{"blocklist_type": name, "item": item.strip(), "user_id": user_id} for item in items if item.strip()]
                 if rows:
                     self.client.table("blocklists").insert(rows).execute()
         except Exception as e:
