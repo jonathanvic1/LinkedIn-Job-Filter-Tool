@@ -1,7 +1,5 @@
 import os
 from supabase import create_client, Client
-from datetime import datetime
-import json
 
 class Database:
     _instance = None

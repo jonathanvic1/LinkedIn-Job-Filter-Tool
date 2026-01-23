@@ -1,19 +1,17 @@
 import sys
 import os
 import threading
-import json
 import time
+from datetime import datetime
 from database import db
 import uvicorn
 import subprocess
-import signal
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
-from concurrent.futures import ThreadPoolExecutor
 
 # Add current directory to path so we can import modules
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

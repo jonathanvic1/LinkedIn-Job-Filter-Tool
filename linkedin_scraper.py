@@ -6,18 +6,12 @@ A script to scrape job postings from LinkedIn based on various search criteria.
 Uses curl_cffi with Chrome 136 impersonation and authenticated cookies to query the Voyager API.
 """
 
-import math
-import re
 from curl_cffi import requests
-from tqdm import tqdm
-import pandas as pd
 from datetime import datetime
 from time import sleep
-import argparse
 import sys
 import os
 import json
-import urllib.parse
 import urllib.parse
 from typing import List, Dict, Optional
 from database import db
