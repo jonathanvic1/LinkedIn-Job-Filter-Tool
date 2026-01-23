@@ -131,7 +131,12 @@ class BlocklistUpdate(BaseModel):
     content: str
 
 class SettingsUpdate(BaseModel):
-    linkedin_cookie: str
+    linkedin_cookie: Optional[str] = None
+    page_delay: Optional[float] = None
+    job_delay: Optional[float] = None
+
+class BlocklistValidate(BaseModel):
+    items: List[str]
 
 # --- Helper Functions ---
 
@@ -178,19 +183,25 @@ def run_scraper_thread(params: SearchParams, user_id: str = None):
     state.stop_event.clear()
     state.scraped_jobs = []
     state.logs = [] # Clear logs on new run
+    log_message("🧹 Initializing scraper session...")
     state.total_found = 0
     state.total_dismissed = 0
     
     log_message("🚀 Starting Scraper Background Thread...")
     
-    # Read user settings (including cookie)
+    # Read user settings (including cookie and delays)
     user_cookie = None
+    page_delay = 2.0
+    job_delay = 1.0
+    
     if user_id:
         settings = db.get_user_settings(user_id)
         if settings:
             user_cookie = settings.get('linkedin_cookie')
+            page_delay = settings.get('page_delay', 2.0)
+            job_delay = settings.get('job_delay', 1.0)
             if user_cookie:
-                log_message("🔑 Using user-provided LinkedIn cookie from settings")
+                log_message("🔑 Using user-provided LinkedIn cookie and rate limits from settings")
     
     # Read blocklists from Supabase (user-specific)
     try:
@@ -214,7 +225,9 @@ def run_scraper_thread(params: SearchParams, user_id: str = None):
             easy_apply=params.easy_apply,
             workplace_type=params.workplace_type,
             user_id=user_id,
-            cookie_string=user_cookie
+            cookie_string=user_cookie,
+            page_delay=page_delay,
+            job_delay=job_delay
         )
         state.scraper_instance = scraper
         
@@ -339,23 +352,67 @@ def get_settings(request: Request):
     user_id = get_user_id(request)
     settings = db.get_user_settings(user_id)
     if settings:
-        # Mask the cookie for security (show only last 20 chars)
         cookie = settings.get('linkedin_cookie', '')
         return {
             "has_cookie": bool(cookie),
             "cookie_preview": f"...{cookie[-20:]}" if len(cookie) > 20 else cookie,
-            "linkedin_cookie": cookie,  # Full cookie for editing
+            "linkedin_cookie": cookie,
+            "page_delay": settings.get('page_delay', 2.0),
+            "job_delay": settings.get('job_delay', 1.0),
             "updated_at": settings.get('updated_at')
         }
-    return {"has_cookie": False, "cookie_preview": None, "linkedin_cookie": "", "updated_at": None}
+    return {
+        "has_cookie": False, 
+        "cookie_preview": None, 
+        "linkedin_cookie": "", 
+        "page_delay": 2.0, 
+        "job_delay": 1.0, 
+        "updated_at": None
+    }
 
 @app.post("/api/settings")
 def save_settings(update: SettingsUpdate, request: Request):
     user_id = get_user_id(request)
-    success = db.save_user_settings(user_id, update.linkedin_cookie)
+    # Get current settings to maintain values if not provided in update
+    current = db.get_user_settings(user_id) or {}
+    
+    cookie = update.linkedin_cookie if update.linkedin_cookie is not None else current.get('linkedin_cookie')
+    page_delay = update.page_delay if update.page_delay is not None else current.get('page_delay', 2.0)
+    job_delay = update.job_delay if update.job_delay is not None else current.get('job_delay', 1.0)
+    
+    success = db.save_user_settings(user_id, cookie, page_delay, job_delay)
     if success:
         return {"status": "saved"}
     return {"status": "error", "detail": "Failed to save settings"}
+
+@app.post("/api/blocklist/validate")
+def validate_blocklist(req: BlocklistValidate):
+    seen = set()
+    duplicates = []
+    whitespace_issues = []
+    
+    for i, original in enumerate(req.items):
+        stripped = original.strip()
+        
+        # Check Whitespace
+        if original != stripped:
+            whitespace_issues.append({"index": i + 1, "value": original})
+        
+        # Check Duplicates (case-insensitive)
+        lower = stripped.lower()
+        if not lower: continue # Skip empty
+        
+        if lower in seen:
+            duplicates.append({"index": i + 1, "value": stripped})
+        else:
+            seen.add(lower)
+            
+    return {
+        "duplicates": duplicates,
+        "whitespace_issues": whitespace_issues,
+        "total_items": len(req.items),
+        "valid": len(duplicates) == 0 and len(whitespace_issues) == 0
+    }
 
 @app.get("/api/history/export")
 def export_history(request: Request):

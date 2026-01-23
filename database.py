@@ -380,13 +380,15 @@ class Database:
             print(f"⚠️ DB Error (get_user_settings): {e}")
         return None
 
-    def save_user_settings(self, user_id, linkedin_cookie):
+    def save_user_settings(self, user_id, linkedin_cookie, page_delay=2.0, job_delay=1.0):
         """Save or update user settings."""
         if not self.client or not user_id: return False
         try:
             data = {
                 "user_id": user_id,
                 "linkedin_cookie": linkedin_cookie,
+                "page_delay": page_delay,
+                "job_delay": job_delay,
                 "updated_at": "now()"
             }
             self.client.table("user_settings").upsert(data).execute()

@@ -205,10 +205,17 @@ function renderLogs(logs) {
     // Optimization: compare last log or timestamp.
 
     const html = logs.map(line => `<div class="break-words font-mono text-xs">${escapeHtml(line)}</div>`).join('');
+
     // Only update if changed
     if (container.innerHTML !== html) {
+        // Smart Scroll: Only scroll to bottom if user is already near the bottom
+        const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 50;
+
         container.innerHTML = html;
-        container.scrollTop = container.scrollHeight;
+
+        if (isAtBottom) {
+            container.scrollTop = container.scrollHeight;
+        }
     }
 }
 
@@ -641,6 +648,10 @@ async function loadSettings() {
         const cookieInput = document.getElementById('linkedin-cookie');
         cookieInput.value = data.linkedin_cookie || '';
 
+        // Delays
+        if (data.page_delay !== undefined) document.getElementById('page-delay').value = data.page_delay;
+        if (data.job_delay !== undefined) document.getElementById('job_delay').value = data.job_delay;
+
         if (data.updated_at) {
             document.getElementById('last-updated-row').classList.remove('hidden');
             document.getElementById('cookie-updated-at').textContent = new Date(data.updated_at).toLocaleString();
@@ -667,17 +678,18 @@ function updateCookiePreview(hasCookie, preview) {
 }
 
 async function saveSettings() {
-    const cookie = document.getElementById('linkedin-cookie').value.trim();
-    if (!cookie) {
-        showToast("Please enter a cookie string", true);
-        return;
-    }
+    const pageDelay = parseFloat(document.getElementById('page-delay').value) || 2.0;
+    const jobDelay = parseFloat(document.getElementById('job_delay').value) || 1.0;
 
     try {
         const res = await apiFetch('/api/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ linkedin_cookie: cookie })
+            body: JSON.stringify({
+                linkedin_cookie: cookie,
+                page_delay: pageDelay,
+                job_delay: jobDelay
+            })
         });
 
         if (res.ok) {
@@ -707,6 +719,101 @@ function toggleCookieVisibility() {
         overlay.classList.remove('opacity-0');
         btn.textContent = "Show Cookie";
     }
+}
+
+// Blocklist Validation
+async function validateBlocklist(filename) {
+    const textareaId = filename === 'blocklist.txt' ? 'blocklist-titles' : 'blocklist-companies';
+    const content = document.getElementById(textareaId).value;
+    const items = content.split('\n').filter(line => line.trim() !== '');
+
+    if (items.length === 0) {
+        showToast("Blocklist is empty", true);
+        return;
+    }
+
+    try {
+        const res = await apiFetch('/api/blocklist/validate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items })
+        });
+        const result = await res.json();
+        showValidationResults(result);
+    } catch (e) {
+        showToast("Validation failed", true);
+    }
+}
+
+function showValidationResults(result) {
+    const container = document.getElementById('validation-results-content');
+    let html = '';
+
+    if (result.valid) {
+        html = `
+            <div class="bg-green-900/30 border border-green-800 p-6 rounded-xl text-center">
+                <div class="inline-flex items-center justify-center w-12 h-12 bg-green-500/20 text-green-400 rounded-full mb-3">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                </div>
+                <h4 class="text-green-400 font-bold text-lg">No Issues Found</h4>
+                <p class="text-green-500/70 text-sm mt-1">Found ${result.total_items} items. No duplicates or whitespace issues detected.</p>
+            </div>
+        `;
+    } else {
+        if (result.duplicates.length > 0) {
+            html += `
+                <div class="space-y-3">
+                    <h4 class="text-yellow-400 font-bold flex items-center text-sm uppercase tracking-wider">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.268 17c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
+                        Duplicates (${result.duplicates.length})
+                    </h4>
+                    <div class="bg-gray-900 rounded-lg p-3 space-y-1.5 border border-yellow-900/30">
+                        ${result.duplicates.slice(0, 10).map(d => `
+                            <div class="flex justify-between text-xs">
+                                <span class="text-gray-400 font-mono">Line ${d.index}:</span>
+                                <span class="text-yellow-500 font-medium">${escapeHtml(d.value)}</span>
+                            </div>
+                        `).join('')}
+                        ${result.duplicates.length > 10 ? `<div class="text-[10px] text-gray-500 italic pt-1">... and ${result.duplicates.length - 10} more</div>` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        if (result.whitespace_issues.length > 0) {
+            html += `
+                <div class="space-y-3">
+                    <h4 class="text-blue-400 font-bold flex items-center text-sm uppercase tracking-wider">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09a10.116 10.116 0 001.202-2.31c.216-.605.516-1.185.894-1.725"/>
+                        </svg>
+                        Whitespace Issues (${result.whitespace_issues.length})
+                    </h4>
+                    <div class="bg-gray-900 rounded-lg p-3 space-y-1.5 border border-blue-900/30">
+                        ${result.whitespace_issues.slice(0, 10).map(w => `
+                            <div class="flex justify-between text-xs">
+                                <span class="text-gray-400 font-mono">Line ${w.index}:</span>
+                                <span class="text-blue-500 font-medium bg-blue-900/20 rounded-sm px-1">"${escapeHtml(w.value)}"</span>
+                            </div>
+                        `).join('')}
+                        ${result.whitespace_issues.length > 10 ? `<div class="text-[10px] text-gray-500 italic pt-1">... and ${result.whitespace_issues.length - 10} more</div>` : ''}
+                    </div>
+                    <p class="text-[10px] text-gray-500 italic mt-1">Note: These entries have leading or trailing spaces that should be removed for exact matching.</p>
+                </div>
+            `;
+        }
+    }
+
+    container.innerHTML = html;
+    document.getElementById('validation-modal').classList.remove('hidden');
+}
+
+function closeValidationModal() {
+    document.getElementById('validation-modal').classList.add('hidden');
 }
 
 // Export History

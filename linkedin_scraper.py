@@ -55,12 +55,16 @@ class LinkedInScraper:
                  easy_apply: bool = False,
                  workplace_type: List[int] = None,
                  user_id: str = None,
-                 cookie_string: str = None):
+                 cookie_string: str = None,
+                 page_delay: float = 2.0,
+                 job_delay: float = 1.0):
         self.keywords = keywords
         self.location = location
         self.limit_jobs = limit_jobs
         self.easy_apply = easy_apply
         self.cookie_string = cookie_string
+        self.page_delay = page_delay
+        self.job_delay = job_delay
         self.dismiss_titles = [k.lower().strip() for k in dismiss_keywords if k and k.strip()] if dismiss_keywords else []
         
         # Sanitize company inputs (extract slug from URL if present)
@@ -130,8 +134,9 @@ class LinkedInScraper:
         self.csrf_token = cookies.get('JSESSIONID')
         if not self.csrf_token:
                 print("⚠️  Warning: JSESSIONID not found in cookies. Requests might fail.")
-        else:
-                print(f"🔑 CSRF Token loaded from {'Environment Variable' if os.environ.get('LINKEDIN_COOKIES') else 'File'}")
+        if self.csrf_token:
+            # CSRF token loaded stealthily
+            pass
 
     def log_error(self, error: str):
         """Log error messages to console (Vercel safe)."""
@@ -774,7 +779,8 @@ class LinkedInScraper:
                 yield page_jobs
                 
                 start += count
-                sleep(2)
+                print(f"⏳ Waiting {self.page_delay}s for next page...")
+                sleep(self.page_delay)
                 
             except Exception as e:
                 print(f"❌ Error fetching page: {e}")
@@ -783,9 +789,8 @@ class LinkedInScraper:
 
     def process_jobs(self):
         """Main processing loop: Fetch, Filter, Dismiss."""
-        print(f"DEBUG: Processing started with {len(self.dismiss_titles)} title keywords.")
-        if self.dismiss_titles:
-             print(f"DEBUG: Keyword sample: {self.dismiss_titles[:5]} ... {self.dismiss_titles[-5:]}")
+        if not self.dismiss_titles and not self.dismiss_companies:
+            print("ℹ️ No blocklists provided. Scraping only...")
         processed_count = 0
         dismissed_count = 0
         skipped_count = 0
@@ -808,6 +813,8 @@ class LinkedInScraper:
             print(f"📝 Processing page with {len(page_jobs)} jobs ({page_reposted} reposted, {page_easy_apply} easy apply, {page_early} early, {page_reviewing} reviewing, {page_applied} applied, {page_viewed} viewed)...")
             
             for job in tqdm(page_jobs, desc="Filtering Page", leave=False):
+                if self.job_delay > 0:
+                    sleep(self.job_delay)
                 title = job.get('title', 'Unknown')
                 # print(f"DEBUG: Processing title: '{title}' (lower: '{title.lower()}')")
                 if job.get('is_reposted'):
