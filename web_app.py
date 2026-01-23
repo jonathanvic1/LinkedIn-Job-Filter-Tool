@@ -130,6 +130,9 @@ class BlocklistUpdate(BaseModel):
     filename: str # "blocklist.txt" or "blocklist_companies.txt"
     content: str
 
+class SettingsUpdate(BaseModel):
+    linkedin_cookie: str
+
 # --- Helper Functions ---
 
 def get_user_id(request: Request) -> str:
@@ -180,6 +183,15 @@ def run_scraper_thread(params: SearchParams, user_id: str = None):
     
     log_message("🚀 Starting Scraper Background Thread...")
     
+    # Read user settings (including cookie)
+    user_cookie = None
+    if user_id:
+        settings = db.get_user_settings(user_id)
+        if settings:
+            user_cookie = settings.get('linkedin_cookie')
+            if user_cookie:
+                log_message("🔑 Using user-provided LinkedIn cookie from settings")
+    
     # Read blocklists from Supabase (user-specific)
     try:
         block_titles = db.get_blocklist("job_title", user_id)
@@ -201,7 +213,8 @@ def run_scraper_thread(params: SearchParams, user_id: str = None):
             time_filter=params.time_range,
             easy_apply=params.easy_apply,
             workplace_type=params.workplace_type,
-            user_id=user_id
+            user_id=user_id,
+            cookie_string=user_cookie
         )
         state.scraper_instance = scraper
         
@@ -320,6 +333,62 @@ def get_history(request: Request, limit: int = 50, offset: int = 0):
         "limit": limit,
         "offset": offset
     }
+
+@app.get("/api/settings")
+def get_settings(request: Request):
+    user_id = get_user_id(request)
+    settings = db.get_user_settings(user_id)
+    if settings:
+        # Mask the cookie for security (show only last 20 chars)
+        cookie = settings.get('linkedin_cookie', '')
+        return {
+            "has_cookie": bool(cookie),
+            "cookie_preview": f"...{cookie[-20:]}" if len(cookie) > 20 else cookie,
+            "linkedin_cookie": cookie,  # Full cookie for editing
+            "updated_at": settings.get('updated_at')
+        }
+    return {"has_cookie": False, "cookie_preview": None, "linkedin_cookie": "", "updated_at": None}
+
+@app.post("/api/settings")
+def save_settings(update: SettingsUpdate, request: Request):
+    user_id = get_user_id(request)
+    success = db.save_user_settings(user_id, update.linkedin_cookie)
+    if success:
+        return {"status": "saved"}
+    return {"status": "error", "detail": "Failed to save settings"}
+
+@app.get("/api/history/export")
+def export_history(request: Request):
+    import io
+    import csv
+    from fastapi.responses import StreamingResponse
+    
+    user_id = get_user_id(request)
+    # Fetch all history for export (not paginated)
+    data = db.get_history(limit=10000, offset=0, user_id=user_id)
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Job ID", "Title", "Company", "Location", "Reason", "Dismissed At", "Listed At", "Link"])
+    
+    for row in data:
+        writer.writerow([
+            row.get('job_id'),
+            row.get('title'),
+            row.get('company'),
+            row.get('location'),
+            row.get('reason'),
+            row.get('dismissed_at'),
+            row.get('listed_at'),
+            f"https://www.linkedin.com/jobs/view/{row.get('job_id')}"
+        ])
+    
+    output.seek(0)
+    return StreamingResponse(
+        output,
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=history_export_{datetime.now().strftime('%Y%m%d')}.csv"}
+    )
 
 @app.get("/api/geo_cache")
 def get_geo_cache():

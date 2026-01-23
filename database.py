@@ -369,4 +369,30 @@ class Database:
         except Exception as e:
             print(f"⚠️ DB Error (update_blocklist {name}): {e}")
 
+    def get_user_settings(self, user_id):
+        """Fetch user settings including LinkedIn cookie."""
+        if not self.client or not user_id: return None
+        try:
+            response = self.client.table("user_settings").select("*").eq("user_id", user_id).execute()
+            if response.data:
+                return response.data[0]
+        except Exception as e:
+            print(f"⚠️ DB Error (get_user_settings): {e}")
+        return None
+
+    def save_user_settings(self, user_id, linkedin_cookie):
+        """Save or update user settings."""
+        if not self.client or not user_id: return False
+        try:
+            data = {
+                "user_id": user_id,
+                "linkedin_cookie": linkedin_cookie,
+                "updated_at": "now()"
+            }
+            self.client.table("user_settings").upsert(data).execute()
+            return True
+        except Exception as e:
+            print(f"⚠️ DB Error (save_user_settings): {e}")
+            return False
+
 db = Database()

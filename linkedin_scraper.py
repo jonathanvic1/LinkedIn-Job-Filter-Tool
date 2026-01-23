@@ -54,11 +54,13 @@ class LinkedInScraper:
                  time_filter: str = 'all',
                  easy_apply: bool = False,
                  workplace_type: List[int] = None,
-                 user_id: str = None):
+                 user_id: str = None,
+                 cookie_string: str = None):
         self.keywords = keywords
         self.location = location
         self.limit_jobs = limit_jobs
         self.easy_apply = easy_apply
+        self.cookie_string = cookie_string
         self.dismiss_titles = [k.lower().strip() for k in dismiss_keywords if k and k.strip()] if dismiss_keywords else []
         
         # Sanitize company inputs (extract slug from URL if present)
@@ -97,8 +99,11 @@ class LinkedInScraper:
         print("🔧 Initialized scraper with curl_cffi Chrome 136 impersonation and Authenticated Session")
 
     def load_cookies(self):
-        """Load cookies from env var or file and extract CSRF token."""
-        cookie_str = os.environ.get('LINKEDIN_COOKIES')
+        """Load cookies from provided string, env var, or file."""
+        cookie_str = self.cookie_string
+        
+        if not cookie_str:
+            cookie_str = os.environ.get('LINKEDIN_COOKIES')
         
         if not cookie_str:
             try:

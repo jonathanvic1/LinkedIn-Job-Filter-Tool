@@ -52,6 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadBlocklists();
     loadHistory();
     loadGeoCache();
+    loadSettings();
     startStatusPolling();
 });
 
@@ -72,6 +73,7 @@ function switchTab(tabId) {
     }
 
     // Update buttons
+    const btn = document.getElementById(`btn-${tabId}`);
     document.querySelectorAll('.nav-btn').forEach(el => {
         el.classList.remove('bg-gray-700', 'text-white', 'shadow-md', 'shadow-gray-900/20');
         el.classList.add('text-gray-400', 'hover:bg-gray-700');
@@ -79,8 +81,7 @@ function switchTab(tabId) {
 
     if (btn) {
         btn.classList.add('bg-gray-700', 'text-white', 'shadow-md', 'shadow-gray-900/20');
-        btn.classList.remove('text-gray-400', 'hover:bg-gray-700'); // removed hover style to keep active state clean or keep it?
-        // Actually keeping hover is fine, but usually active doesn't need hover bg change if it's already bg-gray-700
+        btn.classList.remove('text-gray-400', 'hover:bg-gray-700');
     }
 }
 
@@ -345,11 +346,11 @@ async function loadHistory(offset = 0, manual = false) {
 
         const tbody = document.getElementById('history-table-body');
         tbody.innerHTML = history.map(row => `
-            <tr class="hover:bg-gray-800 transition-colors">
+            <tr class="hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0">
                 <td class="px-6 py-4 font-medium text-white">${escapeHtml(row.title)}</td>
                 <td class="px-6 py-4 text-gray-400">${escapeHtml(row.company)}</td>
-                <td class="px-6 py-4 text-xs">
-                    <span class="px-2 py-1 rounded bg-red-900 text-red-200">${escapeHtml(formatReason(row.reason))}</span>
+                <td class="px-6 py-4">
+                    <span class="inline-block px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider whitespace-nowrap bg-red-900/40 text-red-300 border border-red-800/50">${escapeHtml(formatReason(row.reason))}</span>
                 </td>
                 <td class="px-6 py-4 text-gray-400 text-xs">${formatDateTime(row.listed_at)}</td>
                 <td class="px-6 py-4 text-gray-400 text-xs">${formatDateTime(row.dismissed_at)}</td>
@@ -628,6 +629,112 @@ async function applyGeoOverride(query, ppId) {
         }
     } catch (e) {
         alert(e.message);
+    }
+}
+
+// Settings
+async function loadSettings() {
+    try {
+        const res = await apiFetch('/api/settings');
+        const data = await res.json();
+
+        const cookieInput = document.getElementById('linkedin-cookie');
+        cookieInput.value = data.linkedin_cookie || '';
+
+        if (data.updated_at) {
+            document.getElementById('last-updated-row').classList.remove('hidden');
+            document.getElementById('cookie-updated-at').textContent = new Date(data.updated_at).toLocaleString();
+        }
+
+        updateCookiePreview(data.has_cookie, data.cookie_preview);
+    } catch (e) {
+        console.error("Failed to load settings", e);
+    }
+}
+
+function updateCookiePreview(hasCookie, preview) {
+    const overlay = document.getElementById('cookie-overlay');
+    const previewText = document.getElementById('cookie-preview-text');
+    if (hasCookie) {
+        previewText.textContent = `Cookie Set (${preview})`;
+        previewText.classList.add('text-green-400');
+        previewText.classList.remove('text-gray-400');
+    } else {
+        previewText.textContent = 'No Cookie Saved';
+        previewText.classList.remove('text-green-400');
+        previewText.classList.add('text-gray-400');
+    }
+}
+
+async function saveSettings() {
+    const cookie = document.getElementById('linkedin-cookie').value.trim();
+    if (!cookie) {
+        showToast("Please enter a cookie string", true);
+        return;
+    }
+
+    try {
+        const res = await apiFetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ linkedin_cookie: cookie })
+        });
+
+        if (res.ok) {
+            showToast("Settings saved successfully!");
+            loadSettings();
+        } else {
+            showToast("Failed to save settings", true);
+        }
+    } catch (e) {
+        showToast("Error saving settings", true);
+    }
+}
+
+let cookieVisible = false;
+function toggleCookieVisibility() {
+    cookieVisible = !cookieVisible;
+    const input = document.getElementById('linkedin-cookie');
+    const overlay = document.getElementById('cookie-overlay');
+    const btn = document.getElementById('toggle-cookie-btn');
+
+    if (cookieVisible) {
+        input.classList.remove('blur-sm');
+        overlay.classList.add('opacity-0');
+        btn.textContent = "Hide Cookie";
+    } else {
+        input.classList.add('blur-sm');
+        overlay.classList.remove('opacity-0');
+        btn.textContent = "Show Cookie";
+    }
+}
+
+// Export History
+async function exportHistory() {
+    try {
+        const token = await authClient.getSessionToken();
+        const url = `/api/history/export`;
+
+        // Use a hidden anchor tag to trigger download with Auth header 
+        // Or since it's a GET, we can just open in new tab if we put token in query?
+        // Better: use fetch blob
+        const res = await apiFetch(url);
+        if (!res.ok) throw new Error("Export failed");
+
+        const blob = await res.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = `linkedin_history_export_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(downloadUrl);
+        document.body.removeChild(a);
+
+        showToast("History exported successfully!");
+    } catch (e) {
+        console.error(e);
+        showToast("Export failed", true);
     }
 }
 
