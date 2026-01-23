@@ -11,8 +11,6 @@ from datetime import datetime
 from time import sleep
 import sys
 import os
-import json
-import urllib.parse
 from typing import List, Dict, Optional
 from database import db
 
