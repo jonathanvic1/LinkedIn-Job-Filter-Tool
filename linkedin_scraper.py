@@ -894,14 +894,17 @@ class LinkedInScraper:
 
         # 2. Concurrent Fetch for remaining pages
         max_workers = 3
-        # Calculate limit
-        target_limit = self.limit_jobs if self.limit_jobs > 0 else (total_jobs if total_jobs else 1000)
-        # Cap at realistic number if unlimted, or respect limit
-        # Each page is 25
         
-        # Determine pages needed
-        # We already did start=0. Next is 25, 50, ... up to target_limit
-        offsets = list(range(25, target_limit, 25))
+        # Use total_jobs as the hard limit (API already told us how many exist)
+        # Also respect user's limit_jobs if set
+        if total_jobs:
+            max_offset = min(total_jobs, self.limit_jobs) if self.limit_jobs > 0 else total_jobs
+        else:
+            max_offset = self.limit_jobs if self.limit_jobs > 0 else 1000
+        
+        # Determine pages needed - only request offsets that could have jobs
+        # We already did start=0. Next is 25, 50, ... up to max_offset
+        offsets = list(range(25, max_offset, 25))
         
         if offsets:
             print(f"🚀 Starting concurrent fetch for {len(offsets)} pages with {max_workers} workers...")
