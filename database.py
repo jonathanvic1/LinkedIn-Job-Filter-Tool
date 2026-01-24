@@ -1,8 +1,10 @@
 import os
+import threading
 from supabase import create_client, Client
 
 class Database:
     _instance = None
+    _lock = threading.Lock()  # Thread lock for write operations
     
     def __new__(cls):
         if cls._instance is None:
@@ -70,7 +72,8 @@ class Database:
         if user_id:
             data["user_id"] = user_id
         try:
-            self.client.table("dismissed_jobs").upsert(data).execute()
+            with self._lock:  # Thread-safe write
+                self.client.table("dismissed_jobs").upsert(data).execute()
             print(f"   💾 Saved to Supabase: {title}")
         except Exception as e:
             print(f"   ⚠️ DB Error (save_dismissed_job): {e}")
