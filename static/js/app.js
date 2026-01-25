@@ -932,18 +932,28 @@ function showOptimizationResults(type, redundant, sourceMap) {
     } else {
         container.innerHTML = `
             <div class="space-y-4">
-                <p class="text-sm text-gray-400">Found <span class="text-white font-bold">${redundant.length}</span> ${description}</p>
+                <div class="flex justify-between items-center">
+                    <p class="text-sm text-gray-400">Found <span class="text-white font-bold">${redundant.length}</span> ${description}</p>
+                    <label class="flex items-center space-x-2 cursor-pointer group">
+                        <input type="checkbox" id="opt-select-all" class="custom-checkbox" onchange="toggleAllRedundant(this.checked)">
+                        <span class="text-[10px] text-gray-500 uppercase font-bold tracking-widest group-hover:text-gray-300">Select All</span>
+                    </label>
+                </div>
                 <div class="bg-gray-900 rounded-xl overflow-hidden border border-gray-700/50">
                     <table class="w-full text-left text-xs">
                         <thead class="bg-gray-800 text-gray-400 uppercase font-bold tracking-wider">
                             <tr>
+                                <th class="px-4 py-2 w-10"></th>
                                 <th class="px-4 py-2">Item (To Remove)</th>
                                 <th class="px-4 py-2">Reason</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-800 text-gray-300">
-                            ${redundant.map(item => `
-                                <tr>
+                            ${redundant.map((item, i) => `
+                                <tr class="hover:bg-gray-800/40 transition-colors">
+                                    <td class="px-4 py-2">
+                                        <input type="checkbox" name="redundant-item" value="${escapeHtml(item)}" class="custom-checkbox opt-item-checkbox">
+                                    </td>
                                     <td class="px-4 py-2 text-red-400 font-medium">${escapeHtml(item)}</td>
                                     <td class="px-4 py-2 text-green-400 font-medium text-xs">${escapeHtml(sourceMap[item])}</td>
                                 </tr>
@@ -951,19 +961,27 @@ function showOptimizationResults(type, redundant, sourceMap) {
                         </tbody>
                     </table>
                 </div>
-                <p class="text-[10px] text-gray-500 italic mt-2">Note: Removing these items won't change your scraper results, but it will make your blocklist easier to manage.</p>
+                <p class="text-[10px] text-gray-500 italic mt-2">Note: Only checked items will be removed from your list.</p>
             </div>
         `;
         applyBtn.classList.remove('hidden');
+        applyBtn.textContent = `Remove Selected Items`;
         applyBtn.onclick = () => {
-            blocklistState[type] = blocklistState[type].filter(item => !redundant.includes(item));
+            const checked = Array.from(document.querySelectorAll('input[name="redundant-item"]:checked')).map(cb => cb.value);
+            if (checked.length === 0) return showToast("No items selected", true);
+
+            blocklistState[type] = blocklistState[type].filter(item => !checked.includes(item));
             renderBlocklist(type);
             closeOptimizationModal();
-            showToast(`Removed ${redundant.length} ${label} items`);
+            showToast(`Removed ${checked.length} items`);
         };
     }
 
     modal.classList.remove('hidden');
+}
+
+function toggleAllRedundant(checked) {
+    document.querySelectorAll('.opt-item-checkbox').forEach(cb => cb.checked = checked);
 }
 
 function escapeHtml(text) {
