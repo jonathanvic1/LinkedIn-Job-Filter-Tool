@@ -409,6 +409,12 @@ def validate_blocklist(req: BlocklistValidate):
         "valid": len(duplicates) == 0 and len(whitespace_issues) == 0
     }
 
+@app.get("/api/history/unique_companies")
+def get_unique_companies(request: Request):
+    """Get all unique company links present in the dismissal history."""
+    user_id = get_user_id(request)
+    return db.get_unique_company_links(user_id=user_id)
+
 @app.get("/api/history/export")
 def export_history(request: Request):
     import io
