@@ -293,6 +293,7 @@ function addBlocklistItem(type) {
         blocklistState[type].unshift(value); // Add to top
         input.value = '';
         renderBlocklist(type);
+        saveBlocklist(type); // Auto-save on add
     }
 }
 
