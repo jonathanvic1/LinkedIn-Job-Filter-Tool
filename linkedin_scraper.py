@@ -794,7 +794,7 @@ class LinkedInScraper:
             
             # Check Title Blocklist
             for keyword in self.dismiss_titles:
-                if keyword in title.lower():
+                if keyword.lower() in title.lower():
                     should_dismiss = True
                     dismiss_reason = "job_title" 
                     print(f"   🔍 Match found: '{keyword}' in Title: '{title}'")
@@ -805,7 +805,7 @@ class LinkedInScraper:
                 match_source = "Company URL" # Reset default
                 for keyword in self.dismiss_companies:
                     # Check URL ONLY (as requested)
-                    if company_url and keyword in company_url.lower():
+                    if company_url and keyword.lower() in company_url.lower():
                         should_dismiss = True
                         dismiss_reason = "company"
                         print(f"   🔍 Match found: '{keyword}' in {match_source}: '{company_url}'")
