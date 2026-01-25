@@ -712,11 +712,16 @@ class LinkedInScraper:
                 # Dismissal URN (Optional but good to have if present)
                 # It's usually in primaryActionsUnions -> dismissJobAction -> jobPostingRelevanceFeedbackUrn
                 dismiss_urn = None
+                is_already_dismissed = False
                 primary_actions = card.get('primaryActionsUnions', [])
                 for action in primary_actions:
                     dismiss_action = action.get('dismissJobAction')
                     if dismiss_action:
                         dismiss_urn = dismiss_action.get('jobPostingRelevanceFeedbackUrn')
+                        # Check LinkedIn-native dismissal status
+                        feedback_obj = urn_map.get(dismiss_urn)
+                        if feedback_obj and feedback_obj.get('dismissed') is True:
+                            is_already_dismissed = True
                         break
                         
                 job_data = {
@@ -733,7 +738,8 @@ class LinkedInScraper:
                     'is_early_applicant': is_early_applicant,
                     'is_actively_reviewing': is_actively_reviewing,
                     'is_applied': is_applied,
-                    'is_viewed': is_viewed
+                    'is_viewed': is_viewed,
+                    'is_already_dismissed': is_already_dismissed
                 }
                 page_jobs.append(job_data)
 
@@ -778,6 +784,12 @@ class LinkedInScraper:
             
             # Check if already processed/dismissed (Batch result)
             if job_id in dismissed_ids:
+                skipped += 1
+                continue
+            
+            # Check LinkedIn-native dismissal (No need to re-dismiss)
+            if job.get('is_already_dismissed'):
+                # We count this as skipped because we don't need to do any work
                 skipped += 1
                 continue
 
