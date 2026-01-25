@@ -779,10 +779,21 @@ class LinkedInScraper:
             title = job.get('title', None)
             job_id = job.get('job_id')
             company = job.get('company', None)
+            location = job.get('location', None)
+            dismiss_urn = job.get('dismiss_urn')
+            job_url = job.get('job_url')
+            company_url = job.get('company_linkedin')
+            is_reposted = job.get('is_reposted', False)
+            listed_at = job.get('listed_at')
             
             processed += 1
             
-            # Check LinkedIn-native dismissal (No need to re-dismiss on LinkedIn, but sync to DB)
+            # 1. Check if already in OUR database (Skipped)
+            if job_id in dismissed_ids:
+                skipped += 1
+                continue
+            
+            # 2. Check LinkedIn-native dismissal (Sync to DB if not present)
             if job.get('is_already_dismissed'):
                 print(f"   📥 Syncing LinkedIn-native dismissal: '{title}'")
                 sync_data = {
@@ -800,15 +811,8 @@ class LinkedInScraper:
                 dismissed_jobs_data.append(sync_data)
                 dismissed += 1
                 continue
-
-            location = job.get('location', None)
-            dismiss_urn = job.get('dismiss_urn')
-            job_url = job.get('job_url')
-            company_url = job.get('company_linkedin')
-            is_reposted = job.get('is_reposted', False)
-            listed_at = job.get('listed_at')
-            
-            # Check for dismissal keywords
+                
+            # 3. Regular Filtering logic...
             should_dismiss = False
             dismiss_reason = None
             
@@ -820,15 +824,13 @@ class LinkedInScraper:
                     print(f"   🔍 Match found: '{keyword}' in Title: '{title}'")
                     break
             
-            # Check Company Blocklist (if not already dismissed)
+            # Check Company Blocklist
             if not should_dismiss:
-                match_source = "Company URL" # Reset default
                 for keyword in self.dismiss_companies:
-                    # Check URL ONLY (as requested)
                     if company_url and keyword.lower() in company_url.lower():
                         should_dismiss = True
                         dismiss_reason = "company"
-                        print(f"   🔍 Match found: '{keyword}' in {match_source}: '{company_url}'")
+                        print(f"   🔍 Match found: '{keyword}' in Company URL: '{company_url}'")
                         break
             
             # Check Auto-Dismiss for Applied Jobs
@@ -837,16 +839,12 @@ class LinkedInScraper:
                 dismiss_reason = "applied"
                 print(f"   🚫 Auto-dismissing already applied job: '{title}'")
                 
-            # Description-Based Deduplication (Final Check)
+            # Description-Based Deduplication
             if not should_dismiss:
-                # Check if potential duplicate exists in DB
                 dup_id = self.get_earliest_duplicate_job_id(title, company)
                 if dup_id and dup_id != job_id:
                     print(f"   🤔 Found potential duplicate in DB (ID: {dup_id}). Comparing descriptions...")
-                    
                     if self.job_delay > 0: sleep(self.job_delay)
-                    
-                    # Fetch descriptions
                     desc_new = self.fetch_job_description(job_id)
                     desc_old = self.fetch_job_description(dup_id)
                     
@@ -857,6 +855,7 @@ class LinkedInScraper:
                     else:
                         print(f"   ✅ Descriptions differ. Not a duplicate.")
             
+            # 4. Perform Dismissal on LinkedIn
             if should_dismiss:
                 if self.job_delay > 0: sleep(self.job_delay)
                 job_data = self.dismiss_job(job_id, title, company, location, dismiss_urn, reason=dismiss_reason, job_url=job_url, company_url=company_url, is_reposted=is_reposted, listed_at=listed_at)
