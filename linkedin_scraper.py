@@ -640,8 +640,8 @@ class LinkedInScraper:
                         ts_ms = item.get('timeAt') or item.get('listedAt')
                         if ts_ms and not listed_at:
                             try:
-                            dt = datetime.fromtimestamp(ts_ms / 1000, timezone(timedelta(hours=-5)))
-                            listed_at = dt.strftime('%Y-%m-%d %H:%M:%S')
+                                dt = datetime.fromtimestamp(ts_ms / 1000, timezone(timedelta(hours=-5)))
+                                listed_at = dt.strftime('%Y-%m-%d %H:%M:%S')
                             except Exception: pass
                 
                 # Fallback 3: Aggressive deep search for 13-digit timestamps in the card
