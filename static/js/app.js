@@ -854,6 +854,96 @@ function formatReason(reason) {
     return map[reason.toLowerCase()] || reason;
 }
 
+// Optimization Modal handlers
+function closeOptimizationModal() {
+    document.getElementById('optimization-modal').classList.add('hidden');
+}
+
+async function optimizeBlocklist(type) {
+    const list = blocklistState[type];
+    if (!list || list.length === 0) {
+        showToast("Blocklist is empty", true);
+        return;
+    }
+
+    // Identify redundant items: if A is a substring of B, B is redundant.
+    // We sort by length ascending to ensure we compare shorter (broader) terms first.
+    const sorted = [...list].sort((a, b) => a.length - b.length);
+    const redundant = [];
+    const sourceMap = {}; // mapping redundant -> source that caused it
+
+    for (let i = 0; i < sorted.length; i++) {
+        const broad = sorted[i].toLowerCase();
+        for (let j = i + 1; j < sorted.length; j++) {
+            const specific = sorted[j].toLowerCase();
+            if (specific.includes(broad)) {
+                if (!redundant.includes(sorted[j])) {
+                    redundant.push(sorted[j]);
+                    sourceMap[sorted[j]] = sorted[i];
+                }
+            }
+        }
+    }
+
+    showOptimizationResults(type, redundant, sourceMap);
+}
+
+function showOptimizationResults(type, redundant, sourceMap) {
+    const container = document.getElementById('optimization-results-content');
+    const modal = document.getElementById('optimization-modal');
+    const applyBtn = document.getElementById('apply-optimization-btn');
+
+    if (redundant.length === 0) {
+        container.innerHTML = `
+            <div class="bg-green-900/30 border border-green-800 p-6 rounded-xl text-center">
+                <div class="inline-flex items-center justify-center w-12 h-12 bg-green-500/20 text-green-400 rounded-full mb-3">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                </div>
+                <h4 class="text-green-400 font-bold text-lg">Already Optimal</h4>
+                <p class="text-green-500/70 text-sm mt-1">No redundant keywords found in this list.</p>
+            </div>
+        `;
+        applyBtn.classList.add('hidden');
+    } else {
+        container.innerHTML = `
+            <div class="space-y-4">
+                <p class="text-sm text-gray-400">Found <span class="text-white font-bold">${redundant.length}</span> redundant items that are already covered by broader keywords:</p>
+                <div class="bg-gray-900 rounded-xl overflow-hidden border border-gray-700/50">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-gray-800 text-gray-400 uppercase font-bold tracking-wider">
+                            <tr>
+                                <th class="px-4 py-2">Redundant (To Remove)</th>
+                                <th class="px-4 py-2">Source (Kept)</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-800 text-gray-300">
+                            ${redundant.map(item => `
+                                <tr>
+                                    <td class="px-4 py-2 text-red-400 font-medium">${escapeHtml(item)}</td>
+                                    <td class="px-4 py-2 text-green-400 font-medium text-xs">Covered by "${escapeHtml(sourceMap[item])}"</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                <p class="text-[10px] text-gray-500 italic mt-2">Note: Removing these items won't change your scraper results, but it will make your blocklist easier to manage.</p>
+            </div>
+        `;
+        applyBtn.classList.remove('hidden');
+        applyBtn.onclick = () => {
+            // Apply removal
+            blocklistState[type] = blocklistState[type].filter(item => !redundant.includes(item));
+            renderBlocklist(type);
+            closeOptimizationModal();
+            showToast(`Removed ${redundant.length} redundant items`);
+        };
+    }
+
+    modal.classList.remove('hidden');
+}
+
 function escapeHtml(text) {
     if (!text) return '';
     return text.toString()
