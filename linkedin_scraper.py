@@ -8,18 +8,17 @@ Uses curl_cffi with Chrome 136 impersonation and authenticated cookies to query 
 
 import os
 import re
-import urllib.parse
 import difflib
 import argparse
+import urllib.parse
 from tqdm import tqdm
 from time import sleep
 from typing import List
 from database import db
-from datetime import datetime, timezone, timedelta
-from curl_cffi import requests
-
 import concurrent.futures
+from curl_cffi import requests
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone, timedelta
 
 # URLs
 VOYAGER_API_URL = 'https://www.linkedin.com/voyager/api/voyagerJobsDashJobCards'
@@ -862,7 +861,7 @@ class LinkedInScraper:
                         
                         if similarity >= 0.95: # 95% similarity threshold
                             should_dismiss = True
-                            dismiss_reason = f"duplicate_description:matched_{dup_id}_sim_{similarity:.3f}"
+                            dismiss_reason = "duplicate_description"
                             print(f"   🚫 Text descriptions are {similarity*100:.1f}% similar! Deduplicating...")
                         else:
                             print(f"   ✅ Descriptions differ (similarity: {similarity*100:.1f}%). Not a duplicate.")

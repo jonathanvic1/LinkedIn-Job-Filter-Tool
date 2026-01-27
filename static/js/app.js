@@ -358,8 +358,8 @@ async function loadHistory(offset = 0, manual = false) {
             <tr class="hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0 hover:z-10 relative">
                 <td class="px-6 py-4 font-medium text-white truncate" title="${escapeHtml(row.title)}">${escapeHtml(row.title)}</td>
                 <td class="px-6 py-4 text-gray-400 truncate" title="${escapeHtml(row.company)}">${escapeHtml(row.company)}</td>
-                <td class="px-6 py-4">
-                    <span class="inline-block px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider whitespace-nowrap bg-red-900/40 text-red-300 border border-red-800/50">${escapeHtml(formatReason(row.reason))}</span>
+                <td class="px-6 py-4 truncate">
+                    <span class="inline-block px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-red-900/40 text-red-300 border border-red-800/50 max-w-full truncate" title="${escapeHtml(formatReason(row.reason))}">${escapeHtml(formatReason(row.reason))}</span>
                 </td>
                 <td class="px-6 py-4 text-gray-400 text-xs text-center">${formatDateTime(row.listed_at)}</td>
                 <td class="px-6 py-4 text-gray-400 text-xs text-center">${formatDateTime(row.dismissed_at)}</td>
@@ -855,7 +855,9 @@ function formatReason(reason) {
         'job_title': 'Job Title',
         'company': 'Company',
         'applied': 'Applied',
-        'title': 'Job Title' // unexpected case
+        'linkedin_native_dismissal': 'LinkedIn Native',
+        'duplicate_description': 'Duplicate Description',
+        'title': 'Job Title'
     };
     return map[reason.toLowerCase()] || reason;
 }
