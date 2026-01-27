@@ -10,6 +10,7 @@ import os
 import re
 import urllib.parse
 import difflib
+import argparse
 from tqdm import tqdm
 from time import sleep
 from typing import List
@@ -913,6 +914,8 @@ class LinkedInScraper:
         elif self.time_filter == 'week': time_range = "r604800"
         elif self.time_filter == 'month': time_range = "r2592000"
 
+        full_job_list = []
+        
         # 1. Fetch First Page (Synchronous) to get Total Count
         print("🚀 Fetching Page 0 to determine scope...")
         page0_jobs, total_jobs = self.fetch_page(0, count=25, geo_id=geo_id, is_refined=is_refined, sort_by=sort_by, time_range=time_range)
@@ -921,75 +924,55 @@ class LinkedInScraper:
             print("❌ No jobs found or API error on first page.")
             return
 
+        full_job_list.extend(page0_jobs)
+
         if total_jobs:
             print(f"📊 Total jobs available: {total_jobs}")
         
-        # Process Page 0
-        (p, d, s, rep, easy, early, rev, app, view), dismissed_data = self.process_page_result(page0_jobs)
-        total_processed += p
-        total_dismissed += d
-        total_skipped += s
-        total_reposted += rep
-        total_easy += easy
-        total_early += early
-        total_reviewing += rev
-        total_applied += app
-        total_viewed += view
-        all_dismissed_jobs.extend(dismissed_data)
-
         # 2. Concurrent Fetch for remaining pages
-        max_workers = 3
+        max_workers = 5
         
-        # Use total_jobs as the hard limit (API already told us how many exist)
-        # Also respect user's limit_jobs if set
+        # Use total_jobs as the hard limit
         if total_jobs:
             max_offset = min(total_jobs, self.limit_jobs) if self.limit_jobs > 0 else total_jobs
         else:
             max_offset = self.limit_jobs if self.limit_jobs > 0 else 1000
         
-        # Determine pages needed - only request offsets that could have jobs
-        # We already did start=0. Next is 25, 50, ... up to max_offset
         offsets = list(range(25, max_offset, 25))
         
         if offsets:
             print(f"🚀 Starting concurrent fetch for {len(offsets)} pages with {max_workers} workers...")
             
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                # Submit all tasks
                 future_to_offset = {
                     executor.submit(self.fetch_page, start, 25, geo_id, is_refined, sort_by, time_range): start 
                     for start in offsets
                 }
                 
-                # Process as they complete
                 for future in concurrent.futures.as_completed(future_to_offset):
                     start = future_to_offset[future]
                     try:
                         page_jobs, _ = future.result()
                         if page_jobs:
-                            (p, d, s, rep, easy, early, rev, app, view), dismissed_data = self.process_page_result(page_jobs)
-                            total_processed += p
-                            total_dismissed += d
-                            total_skipped += s
-                            total_reposted += rep
-                            total_easy += easy
-                            total_early += early
-                            total_reviewing += rev
-                            total_applied += app
-                            total_viewed += view
-                            all_dismissed_jobs.extend(dismissed_data)
+                            full_job_list.extend(page_jobs)
                         else:
                             print(f"⚠️ Empty result for offset {start}")
                     except Exception as exc:
                         print(f"❌ Exception fetching offset {start}: {exc}")
         
-        # 3. Batch Save all dismissed jobs to Supabase
+        # 3. Process All collected jobs
+        print(f"\n🔄 Processing {len(full_job_list)} collected jobs for filtering and dismissal...")
+        (total_processed, total_dismissed, total_skipped, total_reposted, 
+         total_easy, total_early, total_reviewing, total_applied, total_viewed), all_dismissed_jobs = self.process_page_result(full_job_list)
+
+        # 4. Batch Save all dismissed jobs to Supabase
         if all_dismissed_jobs:
             print(f"\n💾 Batch saving {len(all_dismissed_jobs)} dismissed jobs to Supabase...")
             db.batch_save_dismissed_jobs(all_dismissed_jobs)
         
         print(f"\n✨ Done! Processed {total_processed} jobs. Dismissed {total_dismissed} jobs. Skipped {total_skipped}.")
         print(f"📊 Stats: Reposted: {total_reposted}, Easy: {total_easy}, Early: {total_early}, Reviewing: {total_reviewing}, Applied: {total_applied}, Viewed: {total_viewed}")
+        
 
     def close_session(self):
         if hasattr(self, 'session'):
@@ -1045,7 +1028,7 @@ def main():
         limit_jobs=args.limit,
         dismiss_keywords=dismiss_titles if not args.keywords and not args.undo_id and not args.undo_title else dismiss_titles, # Only use global blocklist if regular run
         dismiss_companies=args.block_company.split(',') if args.block_company else dismiss_companies,
-        recent=not args.relevance,
+        relevant=args.relevance,
         time_filter=args.time,
         easy_apply=args.easy_apply
     )

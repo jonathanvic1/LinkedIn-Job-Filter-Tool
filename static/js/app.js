@@ -355,16 +355,20 @@ async function loadHistory(offset = 0, manual = false) {
 
         const tbody = document.getElementById('history-table-body');
         tbody.innerHTML = history.map(row => `
-            <tr class="hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0">
-                <td class="px-6 py-4 font-medium text-white">${escapeHtml(row.title)}</td>
-                <td class="px-6 py-4 text-gray-400">${escapeHtml(row.company)}</td>
+            <tr class="hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0 hover:z-10 relative">
+                <td class="px-6 py-4 font-medium text-white truncate" title="${escapeHtml(row.title)}">${escapeHtml(row.title)}</td>
+                <td class="px-6 py-4 text-gray-400 truncate" title="${escapeHtml(row.company)}">${escapeHtml(row.company)}</td>
                 <td class="px-6 py-4">
                     <span class="inline-block px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider whitespace-nowrap bg-red-900/40 text-red-300 border border-red-800/50">${escapeHtml(formatReason(row.reason))}</span>
                 </td>
-                <td class="px-6 py-4 text-gray-400 text-xs">${formatDateTime(row.listed_at)}</td>
-                <td class="px-6 py-4 text-gray-400 text-xs">${formatDateTime(row.dismissed_at)}</td>
-                <td class="px-6 py-4">
-                    <a href="https://www.linkedin.com/jobs/view/${row.job_id}" target="_blank" class="text-blue-400 hover:text-blue-300 hover:underline text-xs">View Job</a>
+                <td class="px-6 py-4 text-gray-400 text-xs text-center">${formatDateTime(row.listed_at)}</td>
+                <td class="px-6 py-4 text-gray-400 text-xs text-center">${formatDateTime(row.dismissed_at)}</td>
+                <td class="px-6 py-4 text-center">
+                    <a href="https://www.linkedin.com/jobs/view/${row.job_id}" target="_blank" class="text-blue-400 hover:text-blue-300 hover:underline text-xs" title="View Job on LinkedIn">
+                        <svg class="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                        </svg>
+                    </a>
                 </td>
             </tr>
         `).join('');
