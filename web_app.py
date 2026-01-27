@@ -378,7 +378,7 @@ def save_settings(update: SettingsUpdate, request: Request):
     success = db.save_user_settings(user_id, cookie, page_delay, job_delay)
     if success:
         return {"status": "saved"}
-    return {"status": "error", "detail": "Failed to save settings"}
+    raise HTTPException(status_code=500, detail="Failed to save settings to database")
 
 @app.post("/api/blocklist/validate")
 def validate_blocklist(req: BlocklistValidate):

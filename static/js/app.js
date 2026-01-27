@@ -686,13 +686,14 @@ function updateCookiePreview(hasCookie, preview) {
 async function saveSettings() {
     const pageDelay = parseFloat(document.getElementById('page-delay').value) || 2.0;
     const jobDelay = parseFloat(document.getElementById('job_delay').value) || 1.0;
+    const linkedinCookie = document.getElementById('linkedin-cookie').value;
 
     try {
         const res = await apiFetch('/api/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                linkedin_cookie: cookie,
+                linkedin_cookie: linkedinCookie,
                 page_delay: pageDelay,
                 job_delay: jobDelay
             })
