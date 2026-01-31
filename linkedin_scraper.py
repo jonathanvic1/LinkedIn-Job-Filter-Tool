@@ -15,6 +15,7 @@ from tqdm import tqdm
 from time import sleep
 from typing import List
 from database import db
+import geo_utils
 import concurrent.futures
 from curl_cffi import requests
 from concurrent.futures import ThreadPoolExecutor
@@ -346,11 +347,15 @@ class LinkedInScraper:
                                 values = f.get('secondaryFilterValues', [])
                                 for val in values:
                                     display_name = val.get('displayName', '')
-                                    candidates.append({
-                                        'id': val.get('value'),
-                                        'name': display_name,
-                                        'corrected_name': val.get('accessibilityText') or display_name
-                                    })
+                                    
+                                    # Use geo_utils to filter and normalize
+                                    if geo_utils.is_valid_location(display_name):
+                                        corrected = geo_utils.normalize_location_name(display_name)
+                                        candidates.append({
+                                            'id': val.get('value'),
+                                            'name': display_name,
+                                            'corrected_name': corrected
+                                        })
                                     
                 if candidates:
                     # Save candidates to DB
