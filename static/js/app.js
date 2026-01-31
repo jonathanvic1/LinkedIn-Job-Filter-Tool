@@ -1061,7 +1061,7 @@ function renderSavedSearches(searches) {
         return;
     }
 
-    const isAppRunning = globalState && globalState.running;
+    const isAppRunning = isRunning;
 
     container.innerHTML = searches.map(s => {
         const filters = [];
