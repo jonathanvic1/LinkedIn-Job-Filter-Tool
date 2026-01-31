@@ -251,10 +251,9 @@ def run_scraper_thread(params: SearchParams, user_id: str = None):
         state.scraper_instance = scraper
         
         # Run processing
-        scraper.process_jobs()
-        
-        # Capture stats (if available on scraper)
-        # For now, we just mark as complete
+        results = scraper.process_jobs()
+        if results:
+            total_found, total_dismissed, total_skipped = results
             
     except Exception as e:
         log_message(f"❌ Scraper crashed: {e}")

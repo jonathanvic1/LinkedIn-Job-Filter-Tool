@@ -594,8 +594,8 @@ class Database:
         try:
             data = {
                 "user_id": user_id,
-                "keywords": params.get("keywords", ""),
-                "location": params.get("location", ""),
+                "keywords": params.get("keywords") or "",
+                "location": params.get("location") or "",
                 "time_range": params.get("time_range", "all"),
                 "status": "running",
                 "started_at": datetime.now(timezone(timedelta(hours=-5))).replace(microsecond=0).isoformat()

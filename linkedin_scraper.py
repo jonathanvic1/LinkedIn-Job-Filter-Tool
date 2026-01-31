@@ -986,8 +986,9 @@ class LinkedInScraper:
             print(f"\n💾 Batch saving {len(all_dismissed_jobs)} dismissed jobs to Supabase...")
             db.batch_save_dismissed_jobs(all_dismissed_jobs)
         
-        print(f"\n✨ Done! Processed {total_processed} jobs. Dismissed {total_dismissed} jobs. Skipped {total_skipped}.")
         print(f"📊 Stats: Reposted: {total_reposted}, Easy: {total_easy}, Early: {total_early}, Reviewing: {total_reviewing}, Applied: {total_applied}, Viewed: {total_viewed}")
+        
+        return (total_processed, total_dismissed, total_skipped)
         
 
     def close_session(self):
