@@ -133,6 +133,16 @@ class SettingsUpdate(BaseModel):
 class BlocklistValidate(BaseModel):
     items: List[str]
 
+class SavedSearchRequest(BaseModel):
+    name: str
+    keywords: str = ""
+    location: str = "Canada"
+    time_range: str = "all"
+    limit: int = 25
+    easy_apply: bool = False
+    relevant: bool = False
+    workplace_type: List[int] = []
+
 # --- Helper Functions ---
 
 def get_user_id(request: Request) -> str:
@@ -182,6 +192,15 @@ def run_scraper_thread(params: SearchParams, user_id: str = None):
     state.total_found = 0
     state.total_dismissed = 0
     
+    # Log search start to history
+    history_id = None
+    if user_id:
+        history_id = db.log_search_start(user_id, {
+            "keywords": params.keywords,
+            "location": params.location,
+            "time_range": params.time_range
+        })
+    
     log_message("🚀 Starting Scraper Background Thread...")
     
     # Read user settings (including cookie and delays)
@@ -208,6 +227,11 @@ def run_scraper_thread(params: SearchParams, user_id: str = None):
         block_companies = []
 
     # Initialize Scraper
+    total_found = 0
+    total_dismissed = 0
+    total_skipped = 0
+    status = "completed"
+    
     try:
         scraper = LinkedInScraper(
             keywords=params.keywords,
@@ -226,28 +250,24 @@ def run_scraper_thread(params: SearchParams, user_id: str = None):
         )
         state.scraper_instance = scraper
         
-        # We need to intercept the scraper's prints.
-        # Since LinkedInScraper prints directly, we'll swap stdout temporarily for this thread?
-        # Thread-local stdout interception is hard in Python.
-        # Instead, we will rely on the fact that we globally swapped stdout below
-        # or we could rewrite the scraper to take a logger.
-        # For this quick implementation, we will use the global interceptor.
-        
         # Run processing
-        # Note: process_jobs is a blocking call. We can't easily interrupt it unless we modify the class
-        # to check a stop flag. But we can kill the thread/process? No, thread killing is bad.
-        # We will let it run or rely on the limit.
-        # Ideally, we'd modify LinkedInScraper to check an external flag, but let's stick to 'limit' for now.
-        
         scraper.process_jobs()
+        
+        # Capture stats (if available on scraper)
+        # For now, we just mark as complete
             
     except Exception as e:
         log_message(f"❌ Scraper crashed: {e}")
+        status = "failed"
     finally:
         if state.scraper_instance:
             state.scraper_instance.close_session()
         state.running = False
         log_message("🛑 Scraper finished.")
+        
+        # Log search completion
+        if history_id:
+            db.log_search_complete(history_id, total_found, total_dismissed, total_skipped, status)
 
 # Redirect stdout globally (Affects entire process)
 sys.stdout = LogInterceptor()
@@ -500,6 +520,56 @@ def delete_geo_cache_entry(query: str):
         return {"status": "deleted"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# ========== SAVED SEARCHES ==========
+
+@app.get("/api/searches")
+def get_saved_searches(request: Request):
+    """Get all saved searches for the current user."""
+    user_id = get_user_id(request)
+    searches = db.get_saved_searches(user_id)
+    return {"searches": searches}
+
+@app.post("/api/searches")
+def create_saved_search(req: SavedSearchRequest, request: Request):
+    """Create a new saved search."""
+    user_id = get_user_id(request)
+    params = {
+        "keywords": req.keywords,
+        "location": req.location,
+        "time_range": req.time_range,
+        "limit": req.limit,
+        "easy_apply": req.easy_apply,
+        "relevant": req.relevant,
+        "workplace_type": req.workplace_type
+    }
+    result = db.save_search(user_id, req.name, params)
+    if result:
+        return {"status": "created", "search": result}
+    raise HTTPException(status_code=500, detail="Failed to save search")
+
+@app.delete("/api/searches/{search_id}")
+def delete_saved_search(search_id: str, request: Request):
+    """Delete a saved search."""
+    user_id = get_user_id(request)
+    success = db.delete_saved_search(search_id, user_id)
+    if success:
+        return {"status": "deleted"}
+    raise HTTPException(status_code=500, detail="Failed to delete search")
+
+# ========== SEARCH HISTORY ==========
+
+@app.get("/api/search_history")
+def get_search_history(request: Request, limit: int = 20, offset: int = 0):
+    """Get paginated search history for the current user."""
+    user_id = get_user_id(request)
+    history, total = db.get_search_history(user_id, limit, offset)
+    return {
+        "items": history,
+        "total": total,
+        "limit": limit,
+        "offset": offset
+    }
 
 # --- Serve Static Files ---
 app.mount("/", StaticFiles(directory="static", html=True), name="static")

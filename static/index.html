@@ -145,6 +145,15 @@
                 </svg>
                 <span class="font-medium">Search & Filter</span>
             </button>
+            <button onclick="switchTab('searches')"
+                class="nav-btn w-full text-left px-4 py-3 rounded-lg hover:bg-gray-700 transition-all duration-200 flex items-center space-x-3 text-gray-400"
+                id="btn-searches">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
+                </svg>
+                <span class="font-medium">Searches</span>
+            </button>
             <button onclick="switchTab('history')"
                 class="nav-btn w-full text-left px-4 py-3 rounded-lg hover:bg-gray-700 transition-all duration-200 flex items-center space-x-3 text-gray-400"
                 id="btn-history">
@@ -222,6 +231,14 @@
                     <p class="text-sm text-gray-400 mt-0.5">Configure your parameters to find relevant jobs.</p>
                 </div>
                 <div class="flex space-x-3">
+                    <button onclick="saveCurrentSearch()" id="save-search-btn"
+                        class="px-4 py-2.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg font-medium transition-all flex items-center space-x-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
+                        </svg>
+                        <span>Save</span>
+                    </button>
                     <button onclick="startScraper()" id="start-btn"
                         class="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold transition-all transform active:scale-95 shadow-lg shadow-blue-500/20 flex items-center space-x-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -387,6 +404,61 @@
                 </div>
             </div>
         </div>
+
+        <!-- Searches Tab -->
+        <div id="searches" class="tab-content hidden h-full flex-col">
+            <header class="page-header bg-gray-800 border-b border-gray-700 px-8 flex justify-between items-center">
+                <div>
+                    <h2 class="text-xl font-bold text-white">Saved Searches</h2>
+                    <p class="text-sm text-gray-400 mt-0.5">Manage your saved search configurations and view run
+                        history.</p>
+                </div>
+                <button onclick="loadSearches(true)" class="text-blue-400 hover:text-blue-300 text-sm">Refresh</button>
+            </header>
+            <div class="flex-1 overflow-y-auto p-8 space-y-8">
+                <!-- Saved Searches Grid -->
+                <section>
+                    <div class="flex items-center space-x-3 mb-4">
+                        <div class="w-2 h-6 bg-blue-500 rounded-full"></div>
+                        <h3 class="text-sm font-bold text-gray-300 uppercase tracking-widest">SAVED SEARCHES</h3>
+                    </div>
+                    <div id="saved-searches-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div class="text-center py-10 text-gray-600 italic col-span-full">Loading saved searches...
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Search History -->
+                <section>
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-2 h-6 bg-purple-500 rounded-full"></div>
+                            <h3 class="text-sm font-bold text-gray-300 uppercase tracking-widest">RUN HISTORY</h3>
+                        </div>
+                        <div id="search-history-pagination" class="flex items-center"></div>
+                    </div>
+                    <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden shadow-xl">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-gray-900 text-gray-400 uppercase font-bold text-xs">
+                                <tr>
+                                    <th class="px-6 py-4">Keywords</th>
+                                    <th class="px-6 py-4">Location</th>
+                                    <th class="px-6 py-4 text-center">Status</th>
+                                    <th class="px-6 py-4 text-center">Found</th>
+                                    <th class="px-6 py-4 text-center">Dismissed</th>
+                                    <th class="px-6 py-4">Started</th>
+                                </tr>
+                            </thead>
+                            <tbody id="search-history-body" class="divide-y divide-gray-700">
+                                <tr>
+                                    <td colspan="6" class="px-6 py-8 text-center text-gray-600 italic">Loading
+                                        history...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
         </div>
 
         <!-- History Tab -->

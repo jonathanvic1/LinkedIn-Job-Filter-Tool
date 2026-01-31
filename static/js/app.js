@@ -53,6 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadHistory();
     loadGeoCache();
     loadSettings();
+    loadSearches();
     startStatusPolling();
 });
 
@@ -1013,4 +1014,229 @@ function escapeHtml(text) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+}
+
+// ========== SAVED SEARCHES ==========
+
+let searchHistoryOffset = 0;
+const searchHistoryLimit = 10;
+
+async function loadSearches(manual = false) {
+    try {
+        const [searchesRes, historyRes] = await Promise.all([
+            apiFetch('/api/searches'),
+            apiFetch(`/api/search_history?limit=${searchHistoryLimit}&offset=${searchHistoryOffset}`)
+        ]);
+
+        const searchesData = await searchesRes.json();
+        const historyData = await historyRes.json();
+
+        renderSavedSearches(searchesData.searches || []);
+        renderSearchHistory(historyData.items || [], historyData.total || 0);
+
+        if (manual) showToast("Searches refreshed");
+    } catch (e) {
+        console.error("Failed to load searches", e);
+        if (manual) showToast("Failed to load searches", true);
+    }
+}
+
+function renderSavedSearches(searches) {
+    const container = document.getElementById('saved-searches-grid');
+    if (!container) return;
+
+    if (searches.length === 0) {
+        container.innerHTML = `
+            <div class="col-span-full text-center py-10 text-gray-600 italic">
+                No saved searches yet. Configure a search and click "Save" to create one.
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = searches.map(s => {
+        const filters = [];
+        if (s.easy_apply) filters.push('Easy Apply');
+        if (s.relevant) filters.push('Most Relevant');
+        if (s.workplace_type?.length) {
+            const types = s.workplace_type.map(t => t === 1 ? 'On-site' : t === 2 ? 'Remote' : 'Hybrid');
+            filters.push(...types);
+        }
+
+        return `
+            <div class="bg-gray-800 rounded-xl border border-gray-700 p-5 hover:border-blue-500/50 transition-all group">
+                <div class="flex justify-between items-start mb-3">
+                    <h4 class="font-bold text-white text-lg truncate pr-2">${escapeHtml(s.name)}</h4>
+                    <button onclick="deleteSavedSearch('${s.id}')" 
+                        class="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 transition-all p-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                    </button>
+                </div>
+                <div class="space-y-2 text-sm text-gray-400 mb-4">
+                    <div class="flex items-center space-x-2">
+                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                        <span class="truncate">${escapeHtml(s.keywords) || 'Any keywords'}</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                        </svg>
+                        <span class="truncate">${escapeHtml(s.location) || 'Any location'}</span>
+                    </div>
+                    ${filters.length > 0 ? `
+                        <div class="flex flex-wrap gap-1 mt-2">
+                            ${filters.map(f => `<span class="px-2 py-0.5 bg-gray-700 text-gray-300 rounded text-xs">${f}</span>`).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+                <button onclick="runSavedSearch('${s.id}')"
+                    class="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-all flex items-center justify-center space-x-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                    </svg>
+                    <span>Run Search</span>
+                </button>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderSearchHistory(items, total) {
+    const tbody = document.getElementById('search-history-body');
+    if (!tbody) return;
+
+    if (items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-600 italic">No search history yet.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = items.map(row => {
+        const statusClass = row.status === 'completed' ? 'bg-green-900/40 text-green-300 border-green-800/50' :
+            row.status === 'running' ? 'bg-blue-900/40 text-blue-300 border-blue-800/50' :
+                'bg-red-900/40 text-red-300 border-red-800/50';
+        return `
+            <tr class="hover:bg-gray-800 transition-colors">
+                <td class="px-6 py-4 font-medium text-white">${escapeHtml(row.keywords) || '<em class="text-gray-500">None</em>'}</td>
+                <td class="px-6 py-4 text-gray-400">${escapeHtml(row.location) || '-'}</td>
+                <td class="px-6 py-4 text-center">
+                    <span class="px-2 py-1 rounded text-xs font-bold uppercase ${statusClass}">${row.status || 'unknown'}</span>
+                </td>
+                <td class="px-6 py-4 text-center text-gray-300">${row.total_found ?? '-'}</td>
+                <td class="px-6 py-4 text-center text-gray-300">${row.total_dismissed ?? '-'}</td>
+                <td class="px-6 py-4 text-gray-400 text-xs">${formatDateTime(row.started_at)}</td>
+            </tr>
+        `;
+    }).join('');
+
+    // Pagination
+    const paginationContainer = document.getElementById('search-history-pagination');
+    if (paginationContainer && total > searchHistoryLimit) {
+        const hasNext = (searchHistoryOffset + searchHistoryLimit) < total;
+        const hasPrev = searchHistoryOffset > 0;
+
+        paginationContainer.innerHTML = `
+            <span class="text-xs text-gray-500 mr-3">${searchHistoryOffset + 1}-${Math.min(searchHistoryOffset + searchHistoryLimit, total)} of ${total}</span>
+            <button onclick="loadSearchHistoryPage(${searchHistoryOffset - searchHistoryLimit})" ${!hasPrev ? 'disabled' : ''}
+                class="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs disabled:opacity-50 disabled:cursor-not-allowed text-white">Prev</button>
+            <button onclick="loadSearchHistoryPage(${searchHistoryOffset + searchHistoryLimit})" ${!hasNext ? 'disabled' : ''}
+                class="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs disabled:opacity-50 disabled:cursor-not-allowed text-white ml-1">Next</button>
+        `;
+    }
+}
+
+async function loadSearchHistoryPage(offset) {
+    searchHistoryOffset = Math.max(0, offset);
+    loadSearches();
+}
+
+async function saveCurrentSearch() {
+    const name = prompt('Enter a name for this search:');
+    if (!name || !name.trim()) return;
+
+    const workplace_type = [];
+    if (document.getElementById('wp_onsite')?.checked) workplace_type.push(1);
+    if (document.getElementById('wp_remote')?.checked) workplace_type.push(2);
+    if (document.getElementById('wp_hybrid')?.checked) workplace_type.push(3);
+
+    const payload = {
+        name: name.trim(),
+        keywords: document.getElementById('keywords')?.value || '',
+        location: document.getElementById('location')?.value || 'Canada',
+        time_range: document.getElementById('time_range')?.value || 'all',
+        limit: parseInt(document.getElementById('limit')?.value) || 25,
+        easy_apply: document.getElementById('easy_apply')?.checked || false,
+        relevant: document.getElementById('relevant')?.checked || false,
+        workplace_type: workplace_type
+    };
+
+    try {
+        const res = await apiFetch('/api/searches', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+            showToast('Search saved!');
+            loadSearches();
+        } else {
+            throw new Error('Failed to save');
+        }
+    } catch (e) {
+        showToast('Failed to save search', true);
+    }
+}
+
+async function runSavedSearch(searchId) {
+    try {
+        const res = await apiFetch('/api/searches');
+        const data = await res.json();
+        const search = data.searches?.find(s => s.id === searchId);
+
+        if (!search) {
+            showToast('Search not found', true);
+            return;
+        }
+
+        // Populate form
+        if (document.getElementById('keywords')) document.getElementById('keywords').value = search.keywords || '';
+        if (document.getElementById('location')) document.getElementById('location').value = search.location || 'Canada';
+        if (document.getElementById('time_range')) document.getElementById('time_range').value = search.time_range || 'all';
+        if (document.getElementById('limit')) document.getElementById('limit').value = search.job_limit || 25;
+        if (document.getElementById('easy_apply')) document.getElementById('easy_apply').checked = search.easy_apply || false;
+        if (document.getElementById('relevant')) document.getElementById('relevant').checked = search.relevant || false;
+
+        // Workplace type
+        if (document.getElementById('wp_onsite')) document.getElementById('wp_onsite').checked = search.workplace_type?.includes(1) || false;
+        if (document.getElementById('wp_remote')) document.getElementById('wp_remote').checked = search.workplace_type?.includes(2) || false;
+        if (document.getElementById('wp_hybrid')) document.getElementById('wp_hybrid').checked = search.workplace_type?.includes(3) || false;
+
+        // Switch to scraper tab and start
+        switchTab('scraper');
+        showToast(`Loaded "${search.name}" - Starting...`);
+
+        setTimeout(() => startScraper(), 500);
+    } catch (e) {
+        showToast('Failed to run search', true);
+    }
+}
+
+async function deleteSavedSearch(searchId) {
+    if (!confirm('Delete this saved search?')) return;
+
+    try {
+        const res = await apiFetch(`/api/searches/${searchId}`, { method: 'DELETE' });
+        if (res.ok) {
+            showToast('Search deleted');
+            loadSearches();
+        } else {
+            throw new Error('Delete failed');
+        }
+    } catch (e) {
+        showToast('Failed to delete search', true);
+    }
 }

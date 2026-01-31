@@ -535,4 +535,100 @@ class Database:
             print(f"   ⚠️ DB Error (save_user_settings): {e}")
             return False
 
+    # ========== SAVED SEARCHES ==========
+    
+    def get_saved_searches(self, user_id):
+        """Get all saved searches for a user."""
+        if not self.client or not user_id: return []
+        try:
+            response = self.client.table("saved_searches").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+            return response.data if response.data else []
+        except Exception as e:
+            print(f"   ⚠️ DB Error (get_saved_searches): {e}")
+            return []
+    
+    def save_search(self, user_id, name, params):
+        """Create or update a saved search."""
+        if not self.client or not user_id: return None
+        try:
+            data = {
+                "user_id": user_id,
+                "name": name,
+                "keywords": params.get("keywords", ""),
+                "location": params.get("location", "Canada"),
+                "time_range": params.get("time_range", "all"),
+                "job_limit": params.get("limit", 25),
+                "easy_apply": params.get("easy_apply", False),
+                "relevant": params.get("relevant", False),
+                "workplace_type": params.get("workplace_type", []),
+                "updated_at": datetime.now(timezone(timedelta(hours=-5))).replace(microsecond=0).isoformat()
+            }
+            response = self.client.table("saved_searches").insert(data).execute()
+            return response.data[0] if response.data else None
+        except Exception as e:
+            print(f"   ⚠️ DB Error (save_search): {e}")
+            return None
+    
+    def delete_saved_search(self, search_id, user_id):
+        """Delete a saved search."""
+        if not self.client or not user_id: return False
+        try:
+            self.client.table("saved_searches").delete().eq("id", search_id).eq("user_id", user_id).execute()
+            return True
+        except Exception as e:
+            print(f"   ⚠️ DB Error (delete_saved_search): {e}")
+            return False
+    
+    # ========== SEARCH HISTORY ==========
+    
+    def log_search_start(self, user_id, params):
+        """Log the start of a search run. Returns the history ID."""
+        if not self.client or not user_id: return None
+        try:
+            data = {
+                "user_id": user_id,
+                "keywords": params.get("keywords", ""),
+                "location": params.get("location", ""),
+                "time_range": params.get("time_range", "all"),
+                "status": "running",
+                "started_at": datetime.now(timezone(timedelta(hours=-5))).replace(microsecond=0).isoformat()
+            }
+            response = self.client.table("search_history").insert(data).execute()
+            return response.data[0]["id"] if response.data else None
+        except Exception as e:
+            print(f"   ⚠️ DB Error (log_search_start): {e}")
+            return None
+    
+    def log_search_complete(self, history_id, total_found, total_dismissed, total_skipped, status="completed"):
+        """Update a search history entry with final stats."""
+        if not self.client or not history_id: return False
+        try:
+            data = {
+                "total_found": total_found,
+                "total_dismissed": total_dismissed,
+                "total_skipped": total_skipped,
+                "status": status,
+                "completed_at": datetime.now(timezone(timedelta(hours=-5))).replace(microsecond=0).isoformat()
+            }
+            self.client.table("search_history").update(data).eq("id", history_id).execute()
+            return True
+        except Exception as e:
+            print(f"   ⚠️ DB Error (log_search_complete): {e}")
+            return False
+    
+    def get_search_history(self, user_id, limit=20, offset=0):
+        """Get paginated search history for a user."""
+        if not self.client or not user_id: return [], 0
+        try:
+            # Get total count
+            count_response = self.client.table("search_history").select("id", count="exact").eq("user_id", user_id).execute()
+            total = count_response.count if count_response.count else 0
+            
+            # Get paginated data
+            response = self.client.table("search_history").select("*").eq("user_id", user_id).order("started_at", desc=True).range(offset, offset + limit - 1).execute()
+            return response.data if response.data else [], total
+        except Exception as e:
+            print(f"   ⚠️ DB Error (get_search_history): {e}")
+            return [], 0
+
 db = Database()
