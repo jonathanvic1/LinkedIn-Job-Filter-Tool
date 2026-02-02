@@ -187,25 +187,16 @@ class LogInterceptor:
 
 # --- Scraper Runner Thread ---
 
-def run_scraper_thread(params: SearchParams, user_id: str = None):
+def run_scraper_thread(params: SearchParams, user_id: str, history_id: str):
     state.running = True
     state.stop_event.clear()
     state.scraped_jobs = []
     state.logs = [] # Clear logs on new run
-    log_message("🧹 Initializing scraper session...")
+    log_message("🧹 Initializing scraper session...", history_id)
     state.total_found = 0
     state.total_dismissed = 0
     
-    # Log search start to history
-    history_id = None
-    if user_id:
-        history_id = db.log_search_start(user_id, {
-            "keywords": params.keywords,
-            "location": params.location,
-            "time_range": params.time_range
-        })
-    
-    log_message("🚀 Starting Scraper Background Thread...")
+    log_message("🚀 Starting Scraper Background Thread...", history_id)
     
     # Read user settings (including cookie and delays)
     user_cookie = None
@@ -291,7 +282,7 @@ def start_scraper(params: SearchParams, request: Request):
     thread = threading.Thread(target=run_scraper_thread, args=(params, user_id, history_id))
     thread.daemon = True
     thread.start()
-    return {"status": "started"}
+    return {"status": "started", "history_id": history_id}
 
 @app.post("/api/stop")
 def stop_scraper():
