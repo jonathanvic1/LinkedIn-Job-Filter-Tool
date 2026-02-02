@@ -1567,7 +1567,8 @@ async function deleteHistoryEntry(historyId) {
 
         if (res.ok) {
             showToast('History entry deleted');
-            loadHistory(); // Refresh table
+            loadHistory(); // Refresh History tab
+            loadSearches(); // Refresh Searches tab history
 
             // If the deleted run was being viewed, close the modal
             if (currentDetailsId === historyId) {
