@@ -216,6 +216,8 @@ class LinkedInScraper:
                 }
             else:
                 self.log(f"Failed to dismiss on LinkedIn: {response.status_code}", level='error')
+                self.log(f"   Payload: {payload}")
+                self.log(f"   Response: {response.text[:500]}")
                 return None
                 
         except Exception as e:
@@ -624,6 +626,9 @@ class LinkedInScraper:
                 job_posting_urn = card.get('jobPostingUrn', '')
                 if not job_posting_urn:
                     job_posting_urn = card.get('*jobPosting', '')
+
+                if start == 0 and len(page_jobs) == 0:
+                     self.log(f"DEBUG: Sample Job URN: {job_posting_urn}", level='info')
 
                 job_id = job_posting_urn.split(':')[-1]
                 
