@@ -31,6 +31,8 @@ UNDO_DISMISS_URL = 'https://www.linkedin.com/voyager/api/voyagerJobsDashJobPosti
 HEADERS = {
     "accept": "application/vnd.linkedin.normalized+json+2.1",
     "accept-language": "en-US,en;q=0.9",
+    "origin": "https://www.linkedin.com",
+    "referer": "https://www.linkedin.com/jobs/",
     "sec-ch-prefers-color-scheme": "dark",
     "sec-ch-ua": '"Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"',
     "sec-ch-ua-mobile": "?0",
@@ -185,16 +187,22 @@ class LinkedInScraper:
         """Dismiss a job using Voyager API. Returns job data dict if successful, None otherwise."""
         self.log(f"Dismissing job: {title} at {company} (ID: {job_id})...")
         
+        # Refined Payload based on live browser capture
         payload = {
-            "feedbackType": "NOT_INTERESTED",
-            "jobPostingUrn": f"urn:li:fsd_jobPosting:{job_id}",
-            "jobPostingCardUrn": dismiss_urn
+            "jobPostingRelevanceFeedbackUrn": f"urn:li:fsd_jobPostingRelevanceFeedback:urn:li:fsd_jobPosting:{job_id}",
+            "channel": "JOB_SEARCH"
+        }
+        
+        # Extra headers for dismissal stealth
+        headers = {
+            "x-li-pem-metadata": "Voyager - Careers - Job Card=job-card-action-dismiss"
         }
         
         try:
             response = self.session.post(
                 DISMISS_URL,
                 json=payload,
+                headers=headers,
                 impersonate="chrome136",
                 timeout=30
             )
