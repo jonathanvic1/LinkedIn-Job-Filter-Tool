@@ -68,7 +68,10 @@ def normalize_location_name(name):
             return s.title()
         return None
 
-    return s # Fallback for international or already clean data
+    # New requirement: If it doesn't match any of the above patterns (which ensure State/Province),
+    # then it doesn't have a "State ID" or clear hierarchy we want.
+    # This will now return None for "Newcastle Upon Tyne, UK" etc.
+    return None
 
 def is_valid_location(name):
     """Boolean check to filter out non-standard or 'shitty' data."""
