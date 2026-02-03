@@ -396,7 +396,7 @@ def get_blocklist_suggestions(request: Request):
             cleaned = cleaned.split('linkedin.com/company/')[-1].split('?')[0].strip('/')
         current_companies.append(cleaned)
     
-    title_stats = {} # title -> {'count': 0, 'companies': set()}
+    title_stats = {} # title -> {'count': 0, 'companies': set(), 'company_slugs': set()}
     company_stats = {} # slug -> {'count': 0, 'name': str, 'url': str}
 
     # Optimize: Pre-compile one regex for all title blockers
@@ -413,22 +413,27 @@ def get_blocklist_suggestions(request: Request):
         co_name = row.get('company')
         co_url = row.get('company_linkedin')
         
+        # Calculate slug once for both usages
+        slug = None
+        if co_url:
+            slug = co_url.lower().strip()
+            if 'linkedin.com/company/' in slug:
+                slug = slug.split('linkedin.com/company/')[-1].split('?')[0].strip('/')
+
         if title:
             t_norm = title.strip()
             # Fast Check using compiled regex
             if not (title_block_pattern and title_block_pattern.search(t_norm)):
                 if t_norm not in title_stats:
-                    title_stats[t_norm] = {'count': 0, 'companies': set()}
+                    title_stats[t_norm] = {'count': 0, 'companies': set(), 'company_slugs': set()}
                 title_stats[t_norm]['count'] += 1
                 if co_name:
                     title_stats[t_norm]['companies'].add(co_name)
+                if slug:
+                    title_stats[t_norm]['company_slugs'].add(slug)
         
-        if co_url:
-            slug = co_url.lower().strip()
-            if 'linkedin.com/company/' in slug:
-                slug = slug.split('linkedin.com/company/')[-1].split('?')[0].strip('/')
-            
-            if slug and slug not in current_companies:
+        if slug:
+            if slug not in current_companies:
                 if slug not in company_stats:
                     company_stats[slug] = {'count': 0, 'name': co_name or slug, 'url': co_url}
                 company_stats[slug]['count'] += 1
@@ -436,8 +441,8 @@ def get_blocklist_suggestions(request: Request):
                 if co_name and (company_stats[slug]['name'] == slug or not company_stats[slug]['name']):
                     company_stats[slug]['name'] = co_name
 
-    # Filter for > 5 dismissals
-    eligible_titles = {k: v for k, v in title_stats.items() if v['count'] >= 5}
+    # Filter for >= 2 dismissals for titles (lowered from 5), >= 5 for companies
+    eligible_titles = {k: v for k, v in title_stats.items() if v['count'] >= 2}
     eligible_companies = {k: v for k, v in company_stats.items() if v['count'] >= 5}
 
     # Sort all eligible items by count descending
@@ -449,6 +454,14 @@ def get_blocklist_suggestions(request: Request):
     for title, stats in sorted_title_items:
         if len(top_titles) >= 20:
                 break
+        
+        # FILTER: If all associated companies are already blocked, skip this title
+        # This prevents suggesting generic titles that are only from companies you already blocked
+        if stats['company_slugs']:
+            # Check if EVERY slug in the stats is present in current_companies (blocklist)
+            # We use a set optimization
+            if all(s in current_companies for s in stats['company_slugs']):
+                continue
         
         # Check if this title is already 'covered' by a title we already picked for the top 20
         # or if it would cover one we already picked (favor the one with more dismissals)
