@@ -281,14 +281,14 @@
                 </div>
             </header>
 
-            <div class="flex-1 overflow-y-auto p-8 space-y-6">
+            <div class="flex-1 overflow-y-auto p-4 lg:p-10 space-y-8">
 
                 <!-- Configuration Cards -->
                 <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
                     <!-- Left Column: Search Config -->
                     <div class="lg:col-span-8 space-y-6">
                         <!-- Keywords & Location (Main Inputs) -->
-                        <div class="bg-gray-800 rounded-xl p-6 border border-gray-700 shadow-lg">
+                        <div class="bg-gray-800 rounded-xl p-8 lg:p-10 border border-gray-700 shadow-lg">
                             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                 <div>
                                     <label
@@ -308,7 +308,7 @@
                         </div>
 
                         <!-- Filters Config -->
-                        <div class="bg-gray-800 rounded-xl p-6 border border-gray-700 shadow-lg">
+                        <div class="bg-gray-800 rounded-xl p-8 lg:p-10 border border-gray-700 shadow-lg">
                             <h3 class="text-sm font-semibold text-gray-300 mb-4 flex items-center">
                                 <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor"
                                     viewBox="0 0 24 24">
@@ -318,13 +318,13 @@
                                 </svg>
                                 Advanced Filters
                             </h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                                <div class="space-y-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                                <div class="space-y-6">
                                     <div>
-                                        <label class="block text-xs font-medium text-gray-400 mb-1.5">Time Range</label>
+                                        <label class="block text-xs font-medium text-gray-400 mb-2">Time Range</label>
                                         <div class="relative">
                                             <select id="time_range"
-                                                class="w-full bg-gray-900 border border-gray-600 rounded-lg pl-3 pr-10 py-2.5 text-white appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                                class="w-full bg-gray-900 border border-gray-600 rounded-lg pl-3 pr-10 py-3 text-white appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500">
                                                 <option value="30m">Past 30 Minutes</option>
                                                 <option value="1h">Past 1 Hour</option>
                                                 <option value="8h">Past 8 Hours</option>
@@ -346,16 +346,16 @@
                                         </div>
                                     </div>
                                     <div>
-                                        <label class="block text-xs font-medium text-gray-400 mb-1.5">Result Limit (Max
+                                        <label class="block text-xs font-medium text-gray-400 mb-2">Result Limit (Max
                                             Jobs)</label>
                                         <input type="number" id="limit" value="25"
-                                            class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                            class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                                     </div>
                                 </div>
 
-                                <div class="mt-4">
-                                    <label class="block text-xs font-medium text-gray-400 mb-2">Workplace Type</label>
-                                    <div class="flex flex-col space-y-2">
+                                <div class="mt-2">
+                                    <label class="block text-xs font-medium text-gray-400 mb-4">Workplace Type</label>
+                                    <div class="flex flex-col space-y-3">
                                         <label class="flex items-center space-x-3 cursor-pointer group">
                                             <div class="relative flex items-center">
                                                 <input type="checkbox" id="wp_onsite" value="1" class="custom-checkbox">
@@ -381,7 +381,7 @@
                                 </div>
                             </div>
                             <div
-                                class="bg-gray-900/50 rounded-lg p-5 space-y-5 border border-gray-700/50 mt-10 shadow-inner">
+                                class="bg-gray-900/50 rounded-lg p-6 space-y-6 border border-gray-700/50 mt-12 shadow-inner">
                                 <label class="flex items-center space-x-3 cursor-pointer group">
                                     <div class="relative flex items-center">
                                         <input type="checkbox" id="easy_apply" class="custom-checkbox">
@@ -404,8 +404,8 @@
                     <!-- Right Column: Market Pulse (Stretched Tall) -->
                     <div class="lg:col-span-4 h-full">
                         <!-- Market Pulse Card -->
-                        <div class="bg-gray-800 rounded-xl p-6 border border-gray-700 shadow-lg flex flex-col h-full">
-                            <div class="flex items-center justify-between mb-6">
+                        <div class="bg-gray-800 rounded-xl p-4 border border-gray-700 shadow-lg flex flex-col h-full">
+                            <div class="flex items-center justify-between mb-4">
                                 <h3 class="text-sm font-bold text-gray-300 uppercase tracking-widest flex items-center">
                                     <div class="w-1.5 h-4 bg-blue-500 rounded-full mr-2.5"></div>
                                     Market Pulse
@@ -421,11 +421,11 @@
                                 </button>
                             </div>
 
-                            <div class="flex-1 flex flex-col space-y-6" id="market-pulse-results">
+                            <div class="flex-1 flex flex-col space-y-4" id="market-pulse-results">
                                 <!-- Canada Section -->
                                 <div
-                                    class="bg-gray-900 border border-gray-700/50 rounded-xl p-6 overflow-hidden relative flex-1 flex flex-col justify-center">
-                                    <div class="flex justify-between items-center mb-4 relative z-10">
+                                    class="bg-gray-900 border border-gray-700/50 rounded-xl p-4 overflow-hidden relative flex-1 flex flex-col justify-center">
+                                    <div class="flex justify-between items-center mb-3 relative z-10">
                                         <span
                                             class="text-xs font-black text-blue-400 uppercase tracking-tighter">Canada</span>
                                         <div class="flex items-center space-x-1">
@@ -533,8 +533,8 @@
 
                                 <!-- Toronto Section -->
                                 <div
-                                    class="bg-gray-900 border border-gray-700/50 rounded-xl p-6 overflow-hidden relative flex-1 flex flex-col justify-center">
-                                    <div class="flex justify-between items-center mb-4 relative z-10">
+                                    class="bg-gray-900 border border-gray-700/50 rounded-xl p-4 overflow-hidden relative flex-1 flex flex-col justify-center">
+                                    <div class="flex justify-between items-center mb-3 relative z-10">
                                         <span
                                             class="text-xs font-black text-green-400 uppercase tracking-tighter">Toronto</span>
                                         <div class="flex items-center space-x-1">
