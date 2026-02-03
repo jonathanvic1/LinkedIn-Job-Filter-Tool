@@ -623,7 +623,7 @@ class Database:
             print(f"   ⚠️ DB Error (delete_saved_search): {e}")
             return False
 
-    def get_raw_dismissed_data(self, user_id=None):
+    def get_raw_dismissed_data(self, user_id=None, limit=None):
         """Fetch all raw job titles and company urls from dismissal history."""
         if not self.client: return []
         try:
@@ -632,7 +632,18 @@ class Database:
             page_size = 1000
             
             while True:
-                query = self.client.table("dismissed_jobs").select("title, company, company_linkedin").range(offset, offset + page_size - 1)
+                # Check if we've reached the limit
+                if limit and len(results) >= limit:
+                    break
+                    
+                current_page_size = page_size
+                if limit and (len(results) + page_size > limit):
+                    current_page_size = limit - len(results)
+
+                query = self.client.table("dismissed_jobs").select("title, company, company_linkedin").range(offset, offset + current_page_size - 1)
+                # Order by latest first so we get the most recent dismissals
+                query = query.order("id", desc=True)
+                
                 if user_id:
                     query = query.eq("user_id", user_id)
                 
@@ -641,9 +652,9 @@ class Database:
                     break
                 
                 results.extend(response.data)
-                if len(response.data) < page_size:
+                if len(response.data) < current_page_size:
                     break
-                offset += page_size
+                offset += current_page_size
                 
             return results
         except Exception as e:

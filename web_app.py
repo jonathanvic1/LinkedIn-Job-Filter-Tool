@@ -30,6 +30,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get('/favicon.ico', include_in_schema=False)
+async def favicon():
+    return JSONResponse(content={})
+
 # Public routes that don't need auth
 # We allow the frontend shell to load, JS will handle the UI-level redirect.
 # All sensitive data APIs remain strictly protected.
@@ -378,8 +382,8 @@ def save_blocklist(update: BlocklistUpdate, request: Request):
 def get_blocklist_suggestions(request: Request):
     user_id = get_user_id(request)
     
-    # 1. Get raw history
-    raw_data = db.get_raw_dismissed_data(user_id)
+    # 1. Get raw history (limit to most recent 2500 for performance)
+    raw_data = db.get_raw_dismissed_data(user_id, limit=2500)
     if not raw_data:
         return {"job_titles": [], "companies": [], "total_eligible_job_titles": 0, "total_eligible_companies": 0}
 
