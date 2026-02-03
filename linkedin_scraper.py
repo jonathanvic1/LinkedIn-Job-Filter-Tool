@@ -67,6 +67,8 @@ class LinkedInScraper:
         self.cookie_string = cookie_string
         self.page_delay = page_delay
         self.job_delay = job_delay
+        self.scrape_concurrency = kwargs.get('scrape_concurrency', 5)
+        self.dismiss_concurrency = kwargs.get('dismiss_concurrency', 2)
         self.history_id = history_id
         self.dismiss_titles = [k.lower().strip() for k in dismiss_keywords if k and k.strip()] if dismiss_keywords else []
         
@@ -933,8 +935,8 @@ class LinkedInScraper:
         
         print(f"📝 Processing batch with {len(page_jobs)} jobs ({reposted} reposted, {easy} easy apply, {early} early)...")
 
-        # Concurrent Dismissal with 2 workers
-        max_workers = 2
+        # Concurrent Dismissal
+        max_workers = self.dismiss_concurrency
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_job = {executor.submit(self._process_single_job, job, dismissed_ids): job for job in page_jobs}
             
@@ -1006,7 +1008,7 @@ class LinkedInScraper:
             print(f"📊 Total jobs available: {total_jobs}")
         
         # 2. Concurrent Fetch for remaining pages
-        max_workers = 5
+        max_workers = self.scrape_concurrency
         
         # Use total_jobs as the hard limit
         if total_jobs:

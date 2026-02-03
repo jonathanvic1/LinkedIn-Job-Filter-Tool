@@ -130,6 +130,8 @@ class SettingsUpdate(BaseModel):
     linkedin_cookie: Optional[str] = None
     page_delay: Optional[float] = None
     job_delay: Optional[float] = None
+    scrape_concurrency: Optional[int] = None
+    dismiss_concurrency: Optional[int] = None
 
 class BlocklistValidate(BaseModel):
     items: List[str]
@@ -214,6 +216,8 @@ def run_scraper_thread(params: SearchParams, user_id: str, history_id: str):
             user_cookie = settings.get('linkedin_cookie')
             page_delay = settings.get('page_delay', 2.0)
             job_delay = settings.get('job_delay', 1.0)
+            scrape_concurrency = settings.get('scrape_concurrency', 5)
+            dismiss_concurrency = settings.get('dismiss_concurrency', 2)
             if user_cookie:
                 log_message("🔑 Using user-provided LinkedIn cookie and rate limits from settings")
     
@@ -247,6 +251,8 @@ def run_scraper_thread(params: SearchParams, user_id: str, history_id: str):
             cookie_string=user_cookie,
             page_delay=page_delay,
             job_delay=job_delay,
+            scrape_concurrency=scrape_concurrency if 'scrape_concurrency' in locals() else 5,
+            dismiss_concurrency=dismiss_concurrency if 'dismiss_concurrency' in locals() else 2,
             history_id=history_id
         )
         state.scraper_instance = scraper
@@ -378,6 +384,8 @@ def get_settings(request: Request):
             "linkedin_cookie": cookie,
             "page_delay": settings.get('page_delay', 2.0),
             "job_delay": settings.get('job_delay', 1.0),
+            "scrape_concurrency": settings.get('scrape_concurrency', 5),
+            "dismiss_concurrency": settings.get('dismiss_concurrency', 2),
             "updated_at": settings.get('updated_at')
         }
     return {
@@ -386,6 +394,8 @@ def get_settings(request: Request):
         "linkedin_cookie": "", 
         "page_delay": 2.0, 
         "job_delay": 1.0, 
+        "scrape_concurrency": 5,
+        "dismiss_concurrency": 2,
         "updated_at": None
     }
 
@@ -398,8 +408,10 @@ def save_settings(update: SettingsUpdate, request: Request):
     cookie = update.linkedin_cookie if update.linkedin_cookie is not None else current.get('linkedin_cookie')
     page_delay = update.page_delay if update.page_delay is not None else current.get('page_delay', 2.0)
     job_delay = update.job_delay if update.job_delay is not None else current.get('job_delay', 1.0)
+    scrape_concurrency = update.scrape_concurrency if update.scrape_concurrency is not None else current.get('scrape_concurrency', 5)
+    dismiss_concurrency = update.dismiss_concurrency if update.dismiss_concurrency is not None else current.get('dismiss_concurrency', 2)
     
-    success = db.save_user_settings(user_id, cookie, page_delay, job_delay)
+    success = db.save_user_settings(user_id, cookie, page_delay, job_delay, scrape_concurrency, dismiss_concurrency)
     if success:
         return {"status": "saved"}
     raise HTTPException(status_code=500, detail="Failed to save settings to database")

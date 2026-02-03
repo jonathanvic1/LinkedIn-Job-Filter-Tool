@@ -709,9 +709,9 @@ async function loadSettings() {
         const cookieInput = document.getElementById('linkedin-cookie');
         cookieInput.value = data.linkedin_cookie || '';
 
-        // Delays
-        if (data.page_delay !== undefined) document.getElementById('page-delay').value = data.page_delay;
-        if (data.job_delay !== undefined) document.getElementById('job_delay').value = data.job_delay;
+        // Concurrency
+        if (data.scrape_concurrency !== undefined) document.getElementById('scrape-concurrency').value = data.scrape_concurrency;
+        if (data.dismiss_concurrency !== undefined) document.getElementById('dismiss-concurrency').value = data.dismiss_concurrency;
 
         if (data.updated_at) {
             document.getElementById('last-updated-row').classList.remove('hidden');
@@ -742,6 +742,8 @@ async function saveSettings() {
     const pageDelay = parseFloat(document.getElementById('page-delay').value) || 2.0;
     const jobDelay = parseFloat(document.getElementById('job_delay').value) || 1.0;
     const linkedinCookie = document.getElementById('linkedin-cookie').value;
+    const scrapeConcurrency = parseInt(document.getElementById('scrape-concurrency').value) || 5;
+    const dismissConcurrency = parseInt(document.getElementById('dismiss-concurrency').value) || 2;
 
     try {
         const res = await apiFetch('/api/settings', {
@@ -750,7 +752,9 @@ async function saveSettings() {
             body: JSON.stringify({
                 linkedin_cookie: linkedinCookie,
                 page_delay: pageDelay,
-                job_delay: jobDelay
+                job_delay: jobDelay,
+                scrape_concurrency: scrapeConcurrency,
+                dismiss_concurrency: dismissConcurrency
             })
         });
 
