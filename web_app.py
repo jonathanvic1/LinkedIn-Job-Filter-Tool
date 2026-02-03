@@ -100,6 +100,7 @@ class ScraperState:
     stop_event = threading.Event()
     scraper_instance = None
     active_history_id = None
+    active_search_id = None # Track which saved search is running
 
 state = ScraperState()
 log_lock = threading.Lock()
@@ -121,6 +122,7 @@ class SearchParams(BaseModel):
     easy_apply: bool = False
     relevant: bool = False
     workplace_type: List[int] = []
+    search_id: Optional[str] = None
 
 class BlocklistUpdate(BaseModel):
     filename: str # "blocklist.txt" or "blocklist_companies.txt"
@@ -199,6 +201,7 @@ def run_scraper_thread(params: SearchParams, user_id: str, history_id: str):
     state.stop_event.clear()
     state.scraped_jobs = []
     state.logs = [] # Clear logs on new run
+    state.active_search_id = params.search_id # Set the active search ID
     log_message("🧹 Initializing scraper session...", history_id)
     state.total_found = 0
     state.total_dismissed = 0
@@ -263,18 +266,19 @@ def run_scraper_thread(params: SearchParams, user_id: str, history_id: str):
             total_found, total_dismissed, total_skipped = results
             
     except Exception as e:
-        log_message(f"❌ Scraper crashed: {e}")
+        log_message(f"❌ Scraper crashed: {e}", history_id)
         status = "failed"
     finally:
         if state.scraper_instance:
             state.scraper_instance.close_session()
         state.running = False
-        state.active_history_id = None
+        state.active_search_id = None
         log_message("🛑 Scraper finished.")
         
         # Log search completion
         if history_id:
             db.log_search_complete(history_id, total_found, total_dismissed, total_skipped, status)
+            log_message(f"📊 Run logged to history: {history_id}", history_id)
 
 # Redirect stdout globally (Affects entire process)
 sys.stdout = LogInterceptor()
@@ -317,7 +321,8 @@ def get_status():
     return {
         "running": state.running,
         "logs": state.logs[-50:], # Send last 50 logs
-        "total_found": state.total_found # TODO: Update this real-time if possible
+        "total_found": state.total_found,
+        "active_search_id": state.active_search_id
     }
 
 @app.get("/api/config")
@@ -575,7 +580,14 @@ def delete_search(search_id: str, request: Request):
 @app.patch("/api/searches/{search_id}")
 def update_search(search_id: str, updates: dict, request: Request):
     user_id = get_user_id(request)
-    # Generic update for now, mainly for 'name'
+    
+    # Map 'limit' to 'job_limit' for DB consistency
+    if 'limit' in updates:
+        updates['job_limit'] = updates.pop('limit')
+    elif 'job_limit' in updates:
+        # If it's already job_limit, we're good
+        pass
+
     if db.update_saved_search(search_id, user_id, updates):
         return {"status": "success"}
     raise HTTPException(status_code=500, detail="Failed to update search")

@@ -1059,18 +1059,28 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label class="block text-xs font-medium text-gray-400 mb-1.5">Time Range</label>
-                        <select id="edit-search-time-range"
-                            class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <option value="30m">Past 30 Minutes</option>
-                            <option value="1h">Past 1 Hour</option>
-                            <option value="8h">Past 8 Hours</option>
-                            <option value="24h">Past 24 Hours</option>
-                            <option value="2d">Past 2 Days</option>
-                            <option value="3d">Past 3 Days</option>
-                            <option value="week">Past Week</option>
-                            <option value="month">Past Month</option>
-                            <option value="all">Any Time</option>
-                        </select>
+                        <div class="relative">
+                            <select id="edit-search-time-range"
+                                class="w-full bg-gray-900 border border-gray-600 rounded-lg pl-3 pr-10 py-2.5 text-white appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="30m">Past 30 Minutes</option>
+                                <option value="1h">Past 1 Hour</option>
+                                <option value="8h">Past 8 Hours</option>
+                                <option value="24h">Past 24 Hours</option>
+                                <option value="2d">Past 2 Days</option>
+                                <option value="3d">Past 3 Days</option>
+                                <option value="week">Past Week</option>
+                                <option value="month">Past Month</option>
+                                <option value="all">Any Time</option>
+                            </select>
+                            <div
+                                class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                                <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 20 20">
+                                    <path
+                                        d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                </svg>
+                            </div>
+                        </div>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-400 mb-1.5">Job Limit</label>

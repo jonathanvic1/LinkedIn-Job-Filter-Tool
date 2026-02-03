@@ -170,7 +170,9 @@ async function loadConfig() {
     }
 }
 
-async function startScraper() {
+let activeSearchId = null;
+
+async function startScraper(searchId = null) {
     const workplace_type = [];
     if (document.getElementById('wp_onsite').checked) workplace_type.push(1);
     if (document.getElementById('wp_remote').checked) workplace_type.push(2);
@@ -183,7 +185,8 @@ async function startScraper() {
         limit: parseInt(document.getElementById('limit').value),
         easy_apply: document.getElementById('easy_apply').checked,
         relevant: document.getElementById('relevant').checked,
-        workplace_type: workplace_type
+        workplace_type: workplace_type,
+        search_id: searchId
     };
 
     try {
@@ -223,7 +226,9 @@ function startStatusPolling() {
             const data = await res.json();
 
             updateStatus(data.running);
+            activeSearchId = data.active_search_id; // Set from server
             renderLogs(data.logs);
+            renderSavedSearches(allSavedSearches); // Refresh buttons periodically
 
         } catch (e) {
             console.error("Polling error", e);
@@ -1115,6 +1120,7 @@ function renderSavedSearches(searches) {
     }
 
     const isAppRunning = isRunning;
+    const runningId = activeSearchId;
 
     container.innerHTML = searches.map(s => {
         const filters = [];
@@ -1181,7 +1187,7 @@ function renderSavedSearches(searches) {
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        <span>Scraper Busy</span>
+                        <span>${runningId === s.id ? 'Running...' : 'Scraper Busy'}</span>
                     ` : `
                         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M8 5v14l11-7z"></path>
@@ -1328,7 +1334,7 @@ async function runSavedSearch(searchId) {
         switchTab('scraper');
         showToast(`Loaded "${search.name}" - Starting...`);
 
-        setTimeout(() => startScraper(), 500);
+        setTimeout(() => startScraper(searchId), 500);
     } catch (e) {
         showToast('Failed to run search', true);
     }
@@ -1397,7 +1403,7 @@ async function saveSearchEdits() {
             keywords: document.getElementById('edit-search-keywords').value.trim(),
             location: document.getElementById('edit-search-location').value.trim(),
             time_range: document.getElementById('edit-search-time-range').value,
-            job_limit: parseInt(document.getElementById('edit-search-limit').value) || 25,
+            limit: parseInt(document.getElementById('edit-search-limit').value) || 25,
             easy_apply: document.getElementById('edit-search-easy-apply').checked,
             relevant: document.getElementById('edit-search-relevant').checked,
             workplace_type: workplace_type
