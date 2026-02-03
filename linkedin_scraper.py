@@ -6,20 +6,18 @@ A script to scrape job postings from LinkedIn based on various search criteria.
 Uses curl_cffi with Chrome 136 impersonation and authenticated cookies to query the Voyager API.
 """
 
-import os
-import re
-import difflib
+import csv
+import json
+import logging
 import argparse
-import geo_utils
-import urllib.parse
-from tqdm import tqdm
-from time import sleep
-from typing import List
-from database import db
-import concurrent.futures
+from datetime import datetime, timedelta, timezone
+from time import sleep, time
+from typing import List, Dict, Any, Optional
+from urllib.parse import urlencode
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 from curl_cffi import requests
-from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone, timedelta
+from database import db
 
 # URLs
 VOYAGER_API_URL = 'https://www.linkedin.com/voyager/api/voyagerJobsDashJobCards'
@@ -1058,65 +1056,75 @@ class LinkedInScraper:
 
     
     def get_market_pulse_stats(self, locations: List[str] = None):
-        """Fetch job counts for specific locations and timeframes without scraping."""
+        """Fetch job counts for specific locations and timeframes concurrently."""
         if not locations:
             locations = ["Canada", "Toronto, Ontario, Canada"]
             
         time_filters = {
             "24h": "r86400",
             "3d": "r259200",
+            "5d": "r432000",
             "7d": "r604800"
         }
         
-        results = {}
+        results = {loc: {tf: 0 for tf in time_filters} for loc in locations}
         
+        def fetch_single_stat(loc: str, label: str, tf_code: str, geo_id: str, is_refined: bool):
+            try:
+                filter_list = [
+                    "sortBy:List(DD)",
+                    f"timePostedRange:List({tf_code})"
+                ]
+                
+                geo_query_part = None
+                if is_refined:
+                    filter_list.append(f"populatedPlace:List({geo_id})")
+                else:
+                    geo_query_part = f"locationUnion:(geoId:{geo_id})"
+                    
+                filters_str = ",".join(filter_list)
+                query_parts = [
+                    "origin:JOB_SEARCH_PAGE_JOB_FILTER",
+                    "spellCorrectionEnabled:true"
+                ]
+                if geo_query_part:
+                    query_parts.append(geo_query_part)
+                query_parts.append(f"selectedFilters:({filters_str})")
+                
+                query_string = f"({','.join(query_parts)})"
+                decoration_id = "com.linkedin.voyager.dash.deco.jobs.search.JobSearchCardsCollection-76"
+                full_url = f"{VOYAGER_API_URL}?decorationId={decoration_id}&count=1&q=jobSearch&query={query_string}&servedEventEnabled=false&start=0"
+                
+                # Use a fresh session-like request but with existing cookies if possible
+                # However, sharing the same self.session might be risky for concurrency depending on implementation
+                # curl_cffi sessions are generally thread-safe for reading cookies
+                response = self.session.get(full_url, impersonate="chrome136", timeout=15)
+                if response.status_code == 200:
+                    data = response.json()
+                    return data.get('data', {}).get('paging', {}).get('total', 0)
+                return 0
+            except Exception as e:
+                self.log(f"Error fetching stats for {loc} ({label}): {e}", level='error')
+                return 0
+
+        # Resolve Geo IDs first (sequential as it might involve DB/API matching)
+        geo_info = {}
         for loc in locations:
-            results[loc] = {}
-            # Get Geo ID
             geo_id, is_refined = self.resolve_geo_id(loc)
-            
-            for label, tf in time_filters.items():
-                try:
-                    # Construct query similar to fetch_page but we only care about 'total'
-                    filter_list = [
-                        "sortBy:List(DD)",
-                        f"timePostedRange:List({tf})"
-                    ]
-                    
-                    geo_query_part = None
-                    if is_refined:
-                        filter_list.append(f"populatedPlace:List({geo_id})")
-                    else:
-                        geo_query_part = f"locationUnion:(geoId:{geo_id})"
-                        
-                    filters_str = ",".join(filter_list)
-                    query_parts = [
-                        "origin:JOB_SEARCH_PAGE_JOB_FILTER",
-                        "spellCorrectionEnabled:true"
-                    ]
-                    if geo_query_part:
-                        query_parts.append(geo_query_part)
-                    query_parts.append(f"selectedFilters:({filters_str})")
-                    
-                    query_string = f"({','.join(query_parts)})"
-                    decoration_id = "com.linkedin.voyager.dash.deco.jobs.search.JobSearchCardsCollection-76"
-                    q_param = "jobSearch"
-                    
-                    full_url = f"{VOYAGER_API_URL}?decorationId={decoration_id}&count=1&q={q_param}&query={query_string}&servedEventEnabled=false&start=0"
-                    
-                    response = self.session.get(full_url, impersonate="chrome136", timeout=15)
-                    if response.status_code == 200:
-                        data = response.json()
-                        total = data.get('data', {}).get('paging', {}).get('total', 0)
-                        results[loc][label] = total
-                    else:
-                        results[loc][label] = 0
-                        
-                    # Slow down slightly to be safe
-                    sleep(0.5)
-                except Exception as e:
-                    self.log(f"Error fetching stats for {loc} ({label}): {e}", level='error')
-                    results[loc][label] = 0
+            geo_info[loc] = (geo_id, is_refined)
+
+        # Execute concurrently
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            future_to_stat = {}
+            for loc in locations:
+                gid, refined = geo_info[loc]
+                for label, tf in time_filters.items():
+                    future = executor.submit(fetch_single_stat, loc, label, tf, gid, refined)
+                    future_to_stat[future] = (loc, label)
+
+            for future in as_completed(future_to_stat):
+                loc, label = future_to_stat[future]
+                results[loc][label] = future.result()
                     
         return results
 

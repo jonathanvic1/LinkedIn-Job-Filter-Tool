@@ -1703,8 +1703,18 @@ async function deleteHistoryEntry(historyId) {
 // ========== MARKET PULSE ==========
 async function loadMarketPulse() {
     const ids = {
-        'Canada': { '24h': 'pulse-canada-24h', '7d': 'pulse-canada-7d' },
-        'Toronto, Ontario, Canada': { '24h': 'pulse-toronto-24h', '7d': 'pulse-toronto-7d' }
+        'Canada': {
+            '24h': 'pulse-canada-24h',
+            '3d': 'pulse-canada-3d',
+            '5d': 'pulse-canada-5d',
+            '7d': 'pulse-canada-7d'
+        },
+        'Toronto, Ontario, Canada': {
+            '24h': 'pulse-toronto-24h',
+            '3d': 'pulse-toronto-3d',
+            '5d': 'pulse-toronto-5d',
+            '7d': 'pulse-toronto-7d'
+        }
     };
 
     // Reset UI to loading state
@@ -1730,7 +1740,7 @@ async function loadMarketPulse() {
                 const count = locData[range];
                 const el = document.getElementById(elId);
                 if (el) {
-                    el.innerHTML = count.toLocaleString();
+                    el.innerHTML = (count ?? 0).toLocaleString();
                     el.classList.remove('animate-pulse');
                 }
             }
