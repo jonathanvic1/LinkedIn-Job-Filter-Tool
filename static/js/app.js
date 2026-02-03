@@ -102,6 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadSettings();
     loadSearches();
     startStatusPolling();
+    loadMarketPulse();
 });
 
 // Tab Switching
@@ -1405,10 +1406,13 @@ function closeEditSearchModal() {
 async function saveSearchEdits() {
     if (!currentEditId) return;
 
-    const saveBtn = event.target;
-    const originalText = saveBtn.innerHTML;
-    saveBtn.disabled = true;
-    saveBtn.innerHTML = 'Saving...';
+    // Use a more robust way to find the save button if event isn't passed
+    const saveBtn = document.getElementById('save-search-edits-btn') || (typeof event !== 'undefined' ? event.target : null);
+    const originalText = saveBtn ? saveBtn.innerHTML : 'Save Changes';
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = 'Saving...';
+    }
 
     try {
         const workplace_type = [];
@@ -1434,6 +1438,7 @@ async function saveSearchEdits() {
 
         const res = await apiFetch(`/api/searches/${currentEditId}`, {
             method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updates)
         });
 
@@ -1463,6 +1468,7 @@ document.addEventListener('keydown', (e) => {
                 if (id === 'edit-search-modal') closeEditSearchModal();
                 else if (id === 'job-details-modal') closeJobDetailsModal();
                 else if (id === 'optimization-modal') closeOptimizationModal();
+                else if (id === 'suggestions-modal') closeSuggestionsModal();
             }
         });
     }
@@ -1608,5 +1614,50 @@ async function deleteHistoryEntry(historyId) {
     } catch (e) {
         console.error('Delete history failed', e);
         showToast('Error deleting history', true);
+    }
+}
+// ========== MARKET PULSE ==========
+async function loadMarketPulse() {
+    const ids = {
+        'Canada': { '24h': 'pulse-canada-24h', '7d': 'pulse-canada-7d' },
+        'Toronto, Ontario, Canada': { '24h': 'pulse-toronto-24h', '7d': 'pulse-toronto-7d' }
+    };
+
+    // Reset UI to loading state
+    Object.values(ids).forEach(rangeMap => {
+        Object.values(rangeMap).forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = '<span class="animate-pulse">...</span>';
+        });
+    });
+
+    try {
+        const res = await apiFetch('/api/market-pulse');
+        if (!res.ok) throw new Error("Stats fail");
+        const data = await res.json();
+
+        // Update UI
+        for (const loc in ids) {
+            const locData = data[loc];
+            if (!locData) continue;
+
+            for (const range in ids[loc]) {
+                const elId = ids[loc][range];
+                const count = locData[range];
+                const el = document.getElementById(elId);
+                if (el) {
+                    el.innerHTML = count.toLocaleString();
+                    el.classList.remove('animate-pulse');
+                }
+            }
+        }
+    } catch (e) {
+        console.error("Market pulse error:", e);
+        Object.values(ids).forEach(rangeMap => {
+            Object.values(rangeMap).forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerHTML = '<span class="text-red-900/50">Error</span>';
+            });
+        });
     }
 }

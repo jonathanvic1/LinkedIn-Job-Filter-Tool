@@ -1056,6 +1056,70 @@ class LinkedInScraper:
         if hasattr(self, 'conn'):
             self.conn.close()
 
+    
+    def get_market_pulse_stats(self, locations: List[str] = None):
+        """Fetch job counts for specific locations and timeframes without scraping."""
+        if not locations:
+            locations = ["Canada", "Toronto, Ontario, Canada"]
+            
+        time_filters = {
+            "24h": "r86400",
+            "3d": "r259200",
+            "7d": "r604800"
+        }
+        
+        results = {}
+        
+        for loc in locations:
+            results[loc] = {}
+            # Get Geo ID
+            geo_id, is_refined = self.get_geo_id(loc)
+            
+            for label, tf in time_filters.items():
+                try:
+                    # Construct query similar to fetch_page but we only care about 'total'
+                    filter_list = [
+                        "sortBy:List(DD)",
+                        f"timePostedRange:List({tf})"
+                    ]
+                    
+                    geo_query_part = None
+                    if is_refined:
+                        filter_list.append(f"populatedPlace:List({geo_id})")
+                    else:
+                        geo_query_part = f"locationUnion:(geoId:{geo_id})"
+                        
+                    filters_str = ",".join(filter_list)
+                    query_parts = [
+                        "origin:JOB_SEARCH_PAGE_JOB_FILTER",
+                        "spellCorrectionEnabled:true"
+                    ]
+                    if geo_query_part:
+                        query_parts.append(geo_query_part)
+                    query_parts.append(f"selectedFilters:({filters_str})")
+                    
+                    query_string = f"({','.join(query_parts)})"
+                    decoration_id = "com.linkedin.voyager.dash.deco.jobs.search.JobSearchCardsCollection-76"
+                    q_param = "jobSearch"
+                    
+                    full_url = f"{VOYAGER_API_URL}?decorationId={decoration_id}&count=1&q={q_param}&query={query_string}&servedEventEnabled=false&start=0"
+                    
+                    response = self.session.get(full_url, impersonate="chrome136", timeout=15)
+                    if response.status_code == 200:
+                        data = response.json()
+                        total = data.get('data', {}).get('paging', {}).get('total', 0)
+                        results[loc][label] = total
+                    else:
+                        results[loc][label] = 0
+                        
+                    # Slow down slightly to be safe
+                    sleep(0.5)
+                except Exception as e:
+                    self.log(f"Error fetching stats for {loc} ({label}): {e}", level='error')
+                    results[loc][label] = 0
+                    
+        return results
+
 def main():
     parser = argparse.ArgumentParser(description='LinkedIn Job Cleaner - Dismiss Irrelevant Jobs')
     parser.add_argument('--keywords', '-k', type=str, default='', help='Job search keywords (e.g. "python developer")')

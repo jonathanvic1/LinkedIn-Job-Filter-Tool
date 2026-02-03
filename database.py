@@ -623,6 +623,33 @@ class Database:
             print(f"   ⚠️ DB Error (delete_saved_search): {e}")
             return False
 
+    def get_raw_dismissed_data(self, user_id=None):
+        """Fetch all raw job titles and company urls from dismissal history."""
+        if not self.client: return []
+        try:
+            results = []
+            offset = 0
+            page_size = 1000
+            
+            while True:
+                query = self.client.table("dismissed_jobs").select("title, company, company_linkedin").range(offset, offset + page_size - 1)
+                if user_id:
+                    query = query.eq("user_id", user_id)
+                
+                response = query.execute()
+                if not response.data:
+                    break
+                
+                results.extend(response.data)
+                if len(response.data) < page_size:
+                    break
+                offset += page_size
+                
+            return results
+        except Exception as e:
+            print(f"   ⚠️ DB Error (get_raw_dismissed_data): {e}")
+            return []
+
     def update_saved_search(self, search_id, user_id, updates):
         """Update a saved search configuration (e.g., renaming)."""
         if not self.client: return False

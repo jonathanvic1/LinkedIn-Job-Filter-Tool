@@ -105,6 +105,12 @@ class ScraperState:
 state = ScraperState()
 log_lock = threading.Lock()
 
+# Simple in-memory cache for market stats
+market_pulse_cache = {
+    "data": None,
+    "last_updated": None
+}
+
 # Models
 class CandidateUpdate(BaseModel):
     pp_id: str
@@ -366,6 +372,91 @@ def save_blocklist(update: BlocklistUpdate, request: Request):
         return {"status": "saved"}
     except Exception as e:
         return {"status": "error", "detail": str(e)}
+
+@app.get("/api/blocklist/suggestions")
+def get_blocklist_suggestions(request: Request):
+    user_id = get_user_id(request)
+    
+    # 1. Get raw history
+    raw_data = db.get_raw_dismissed_data(user_id)
+    if not raw_data:
+        return {"job_titles": [], "companies": []}
+
+    # 2. Get current blocklists to filter
+    current_titles = [t.lower().strip() for t in db.get_blocklist("job_title", user_id)]
+    current_companies = []
+    for c in db.get_blocklist("company_linkedin", user_id):
+        cleaned = c.lower().strip()
+        if 'linkedin.com/company/' in cleaned:
+            cleaned = cleaned.split('linkedin.com/company/')[-1].split('?')[0].strip('/')
+        current_companies.append(cleaned)
+    
+    title_counts = {}
+    company_counts = {}
+    company_name_map = {} # map slug to display name
+
+    for row in raw_data:
+        title = row.get('title')
+        co_name = row.get('company')
+        co_url = row.get('company_linkedin')
+        
+        if title:
+            t_norm = title.strip()
+            if t_norm.lower() not in current_titles:
+                title_counts[t_norm] = title_counts.get(t_norm, 0) + 1
+        
+        if co_url:
+            slug = co_url.lower().strip()
+            if 'linkedin.com/company/' in slug:
+                slug = slug.split('linkedin.com/company/')[-1].split('?')[0].strip('/')
+            
+            if slug and slug not in current_companies:
+                company_counts[slug] = company_counts.get(slug, 0) + 1
+                if co_name:
+                    company_name_map[slug] = co_name
+
+    # Sort and return top 20
+    top_titles = sorted(title_counts.items(), key=lambda x: x[1], reverse=True)[:20]
+    top_companies = []
+    sorted_slugs = sorted(company_counts.items(), key=lambda x: x[1], reverse=True)[:20]
+    
+    for slug, count in sorted_slugs:
+        name = company_name_map.get(slug, slug)
+        top_companies.append({"item": slug, "display_name": name, "count": count})
+
+    return {
+        "job_titles": [{"item": t, "count": c} for t, c in top_titles],
+        "companies": top_companies
+    }
+
+@app.get("/api/market-pulse")
+def get_market_pulse(request: Request):
+    global market_pulse_cache
+    
+    # 30-minute cache
+    now = datetime.now()
+    if market_pulse_cache["data"] and market_pulse_cache["last_updated"]:
+        if (now - market_pulse_cache["last_updated"]).total_seconds() < 1800:
+            return market_pulse_cache["data"]
+
+    user_id = get_user_id(request)
+    settings = db.get_user_settings(user_id)
+    cookie = settings.get('linkedin_cookie', '') if settings else None
+    
+    if not cookie:
+        return {"error": "LinkedIn cookie not configured"}
+
+    # Initialize a lightweight scraper instance just for stats
+    scraper = LinkedInScraper(cookie_string=cookie, user_id=user_id)
+    try:
+        stats = scraper.get_market_pulse_stats()
+        market_pulse_cache["data"] = stats
+        market_pulse_cache["last_updated"] = now
+        return stats
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        scraper.close_session()
 
 @app.post("/api/logs/clear")
 def clear_logs(request: Request):
