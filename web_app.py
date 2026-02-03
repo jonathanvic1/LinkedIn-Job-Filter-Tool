@@ -233,7 +233,7 @@ def run_scraper_thread(params: SearchParams, user_id: str, history_id: str):
         block_titles = []
         block_companies = []
 
-    # Initialize Scraper
+    # Initialize Scraper Results
     total_found = 0
     total_dismissed = 0
     total_skipped = 0
@@ -268,17 +268,25 @@ def run_scraper_thread(params: SearchParams, user_id: str, history_id: str):
     except Exception as e:
         log_message(f"❌ Scraper crashed: {e}", history_id)
         status = "failed"
+        import traceback
+        traceback.print_exc()
     finally:
         if state.scraper_instance:
-            state.scraper_instance.close_session()
+            try:
+                state.scraper_instance.close_session()
+            except: pass
+            
         state.running = False
         state.active_search_id = None
         log_message("🛑 Scraper finished.")
         
         # Log search completion
         if history_id:
-            db.log_search_complete(history_id, total_found, total_dismissed, total_skipped, status)
-            log_message(f"📊 Run logged to history: {history_id}", history_id)
+            try:
+                db.log_search_complete(history_id, total_found, total_dismissed, total_skipped, status)
+                log_message(f"📊 Run logged to history: {history_id}", history_id)
+            except Exception as db_err:
+                log_message(f"⚠️ Failed to log run completion: {db_err}")
 
 # Redirect stdout globally (Affects entire process)
 sys.stdout = LogInterceptor()

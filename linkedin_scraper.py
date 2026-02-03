@@ -59,7 +59,8 @@ class LinkedInScraper:
                  cookie_string: str = None,
                  page_delay: float = 2.0,
                  job_delay: float = 1.0,
-                 history_id: str = None):
+                 history_id: str = None,
+                 **kwargs):
         self.keywords = keywords
         self.location = location
         self.limit_jobs = limit_jobs

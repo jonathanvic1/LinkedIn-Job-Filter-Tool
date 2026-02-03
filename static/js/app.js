@@ -237,6 +237,7 @@ function startStatusPolling() {
 }
 
 function updateStatus(running) {
+    const wasRunning = isRunning;
     isRunning = running;
     const indicator = document.getElementById('status-dot');
     const text = document.getElementById('status-text');
@@ -247,14 +248,21 @@ function updateStatus(running) {
         indicator.className = "w-2 h-2 rounded-full bg-green-500 animate-pulse";
         text.innerText = "Status: Running";
         text.className = "text-green-400";
-        startBtn.classList.add('hidden');
-        stopBtn.classList.remove('hidden');
+        if (startBtn) startBtn.classList.add('hidden');
+        if (stopBtn) stopBtn.classList.remove('hidden');
     } else {
         indicator.className = "w-2 h-2 rounded-full bg-gray-500";
         text.innerText = "Status: Idle";
         text.className = "text-gray-400";
-        startBtn.classList.remove('hidden');
-        stopBtn.classList.add('hidden');
+        if (startBtn) startBtn.classList.remove('hidden');
+        if (stopBtn) stopBtn.classList.add('hidden');
+
+        // If it just stopped, refresh the history and saved searches cards
+        if (wasRunning) {
+            console.log("Scraper finished, refreshing UI...");
+            loadHistory(0, false);
+            renderSavedSearches(allSavedSearches);
+        }
     }
 }
 
