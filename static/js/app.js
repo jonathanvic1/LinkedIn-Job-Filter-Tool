@@ -1704,24 +1704,26 @@ async function deleteHistoryEntry(historyId) {
 async function loadMarketPulse() {
     const ids = {
         'Canada': {
-            '24h': 'pulse-canada-24h',
-            '3d': 'pulse-canada-3d',
-            '5d': 'pulse-canada-5d',
-            '7d': 'pulse-canada-7d'
+            '24h': { total: 'pulse-canada-24h', ea: 'mix-canada-24h-ea', rm: 'mix-canada-24h-rm' },
+            '3d': { total: 'pulse-canada-3d', ea: 'mix-canada-3d-ea', rm: 'mix-canada-3d-rm' },
+            '5d': { total: 'pulse-canada-5d', ea: 'mix-canada-5d-ea', rm: 'mix-canada-5d-rm' },
+            '7d': { total: 'pulse-canada-7d', ea: 'mix-canada-7d-ea', rm: 'mix-canada-7d-rm' }
         },
         'Toronto, Ontario, Canada': {
-            '24h': 'pulse-toronto-24h',
-            '3d': 'pulse-toronto-3d',
-            '5d': 'pulse-toronto-5d',
-            '7d': 'pulse-toronto-7d'
+            '24h': { total: 'pulse-toronto-24h', ea: 'mix-toronto-24h-ea', rm: 'mix-toronto-24h-rm' },
+            '3d': { total: 'pulse-toronto-3d', ea: 'mix-toronto-3d-ea', rm: 'mix-toronto-3d-rm' },
+            '5d': { total: 'pulse-toronto-5d', ea: 'mix-toronto-5d-ea', rm: 'mix-toronto-5d-rm' },
+            '7d': { total: 'pulse-toronto-7d', ea: 'mix-toronto-7d-ea', rm: 'mix-toronto-7d-rm' }
         }
     };
 
     // Reset UI to loading state
     Object.values(ids).forEach(rangeMap => {
-        Object.values(rangeMap).forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.innerHTML = '<span class="animate-pulse">...</span>';
+        Object.values(rangeMap).forEach(metricMap => {
+            Object.values(metricMap).forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerHTML = '<span class="animate-pulse">...</span>';
+            });
         });
     });
 
@@ -1736,21 +1738,38 @@ async function loadMarketPulse() {
             if (!locData) continue;
 
             for (const range in ids[loc]) {
-                const elId = ids[loc][range];
-                const count = locData[range];
-                const el = document.getElementById(elId);
-                if (el) {
-                    el.innerHTML = (count ?? 0).toLocaleString();
-                    el.classList.remove('animate-pulse');
+                const metricIds = ids[loc][range];
+                const stats = locData[range]; // Expecting {total, easy_apply, remote}
+
+                if (!stats) continue;
+
+                // Total Count
+                const totalEl = document.getElementById(metricIds.total);
+                if (totalEl) {
+                    totalEl.innerHTML = (stats.total ?? 0).toLocaleString();
+                    totalEl.classList.remove('animate-pulse');
                 }
+
+                // Percentages
+                const total = stats.total || 0;
+                const eaPercent = total > 0 ? Math.round((stats.easy_apply / total) * 100) : 0;
+                const rmPercent = total > 0 ? Math.round((stats.remote / total) * 100) : 0;
+
+                const eaEl = document.getElementById(metricIds.ea);
+                if (eaEl) eaEl.textContent = `${eaPercent}%`;
+
+                const rmEl = document.getElementById(metricIds.rm);
+                if (rmEl) rmEl.textContent = `${rmPercent}%`;
             }
         }
     } catch (e) {
         console.error("Market pulse error:", e);
         Object.values(ids).forEach(rangeMap => {
-            Object.values(rangeMap).forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.innerHTML = '<span class="text-red-900/50">Error</span>';
+            Object.values(rangeMap).forEach(metricMap => {
+                Object.values(metricMap).forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.innerHTML = '<span class="text-red-900/50">Error</span>';
+                });
             });
         });
     }

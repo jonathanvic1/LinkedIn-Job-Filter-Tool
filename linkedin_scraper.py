@@ -1056,7 +1056,7 @@ class LinkedInScraper:
 
     
     def get_market_pulse_stats(self, locations: List[str] = None):
-        """Fetch job counts for specific locations and timeframes concurrently."""
+        """Fetch job counts (Total, Easy Apply, Remote) for specific locations and timeframes concurrently."""
         if not locations:
             locations = ["Canada", "Toronto, Ontario, Canada"]
             
@@ -1067,14 +1067,21 @@ class LinkedInScraper:
             "7d": "r604800"
         }
         
-        results = {loc: {tf: 0 for tf in time_filters} for loc in locations}
+        # Structure: results[loc][label] = { 'total': 0, 'easy_apply': 0, 'remote': 0 }
+        results = {loc: {tf: {'total': 0, 'easy_apply': 0, 'remote': 0} for tf in time_filters} for loc in locations}
         
-        def fetch_single_stat(loc: str, label: str, tf_code: str, geo_id: str, is_refined: bool):
+        def fetch_single_stat(loc: str, label: str, tf_code: str, geo_id: str, is_refined: bool, filter_type: str = 'total'):
             try:
                 filter_list = [
                     "sortBy:List(DD)",
                     f"timePostedRange:List({tf_code})"
                 ]
+                
+                # Add extra filters
+                if filter_type == 'easy_apply':
+                    filter_list.append("applyWithLinkedin:List(true)")
+                elif filter_type == 'remote':
+                    filter_list.append("workplaceType:List(2)")
                 
                 geo_query_part = None
                 if is_refined:
@@ -1095,36 +1102,35 @@ class LinkedInScraper:
                 decoration_id = "com.linkedin.voyager.dash.deco.jobs.search.JobSearchCardsCollection-76"
                 full_url = f"{VOYAGER_API_URL}?decorationId={decoration_id}&count=1&q=jobSearch&query={query_string}&servedEventEnabled=false&start=0"
                 
-                # Use a fresh session-like request but with existing cookies if possible
-                # However, sharing the same self.session might be risky for concurrency depending on implementation
-                # curl_cffi sessions are generally thread-safe for reading cookies
                 response = self.session.get(full_url, impersonate="chrome136", timeout=15)
                 if response.status_code == 200:
                     data = response.json()
                     return data.get('data', {}).get('paging', {}).get('total', 0)
                 return 0
             except Exception as e:
-                self.log(f"Error fetching stats for {loc} ({label}): {e}", level='error')
+                self.log(f"Error fetching {filter_type} stats for {loc} ({label}): {e}", level='error')
                 return 0
 
-        # Resolve Geo IDs first (sequential as it might involve DB/API matching)
+        # Resolve Geo IDs first
         geo_info = {}
         for loc in locations:
             geo_id, is_refined = self.resolve_geo_id(loc)
             geo_info[loc] = (geo_id, is_refined)
 
-        # Execute concurrently
-        with ThreadPoolExecutor(max_workers=10) as executor:
+        # Execute concurrently: 2 locations * 4 timeframes * 3 metrics = 24 requests
+        with ThreadPoolExecutor(max_workers=25) as executor:
             future_to_stat = {}
             for loc in locations:
                 gid, refined = geo_info[loc]
                 for label, tf in time_filters.items():
-                    future = executor.submit(fetch_single_stat, loc, label, tf, gid, refined)
-                    future_to_stat[future] = (loc, label)
+                    # Submit 3 requests per (loc, tf)
+                    for f_type in ['total', 'easy_apply', 'remote']:
+                        future = executor.submit(fetch_single_stat, loc, label, tf, gid, refined, f_type)
+                        future_to_stat[future] = (loc, label, f_type)
 
             for future in as_completed(future_to_stat):
-                loc, label = future_to_stat[future]
-                results[loc][label] = future.result()
+                loc, label, f_type = future_to_stat[future]
+                results[loc][label][f_type] = future.result()
                     
         return results
 
