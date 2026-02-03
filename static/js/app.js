@@ -1523,7 +1523,7 @@ function renderJobDetails(data, run) {
 
     // Update Title Info
     document.getElementById('jd-title').textContent = (run?.keywords && run.keywords !== 'None') ? run.keywords : 'General Search';
-    document.getElementById('jd-subtitle').textContent = `Run started at ${formatDateTime(run?.started_at)}`;
+    document.getElementById('jd-subtitle').innerHTML = `Run started at ${formatDateTime(run?.started_at)}`;
 
     // Status Badge
     const badge = document.getElementById('jd-status-badge');
