@@ -266,6 +266,16 @@ function updateStatus(running) {
     }
 }
 
+async function clearDashboardLogs() {
+    try {
+        await apiFetch('/api/logs/clear', { method: 'POST' });
+        document.getElementById('logs').innerHTML = '<div class="text-gray-500 italic">Logs cleared.</div>';
+        showToast('Logs cleared');
+    } catch (e) {
+        showToast('Failed to clear logs', true);
+    }
+}
+
 function renderLogs(logs) {
     const container = document.getElementById('logs');
     // Simple diffing: just clear and append if length changed significantly or just strict replace?

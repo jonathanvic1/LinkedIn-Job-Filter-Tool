@@ -200,7 +200,7 @@ def run_scraper_thread(params: SearchParams, user_id: str, history_id: str):
     state.running = True
     state.stop_event.clear()
     state.scraped_jobs = []
-    state.logs = [] # Clear logs on new run
+    # state.logs = [] # Clear logs on new run - DISABLED FOR PERSISTENCE
     state.active_search_id = params.search_id # Set the active search ID
     state.total_found = 0
     state.total_dismissed = 0
@@ -322,7 +322,7 @@ def stop_scraper():
 def get_status():
     return {
         "running": state.running,
-        "logs": state.logs[-50:], # Send last 50 logs
+        "logs": state.logs[-50:] if state.logs else (db.get_history_details(state.active_history_id).get('logs', [])[-50:] if state.active_history_id else []),
         "total_found": state.total_found,
         "active_search_id": state.active_search_id
     }
@@ -366,6 +366,13 @@ def save_blocklist(update: BlocklistUpdate, request: Request):
         return {"status": "saved"}
     except Exception as e:
         return {"status": "error", "detail": str(e)}
+
+@app.post("/api/logs/clear")
+def clear_logs(request: Request):
+    user_id = get_user_id(request)
+    with log_lock:
+        state.logs = []
+    return {"status": "success"}
 
 @app.get("/api/history")
 def get_history(request: Request, limit: int = 50, offset: int = 0):
