@@ -354,26 +354,56 @@ async function loadBlocklistSuggestions(type) {
             ${type === 'company' ? '<div class="px-4 mb-4 text-[9px] text-gray-500 italic">Right-click any company to open its LinkedIn page</div>' : ''}
         `;
 
-        container.innerHTML = summaryHtml + suggestions.map(item => {
+        container.innerHTML = summaryHtml + suggestions.map((item, index) => {
             const displayValue = type === 'job_title' ? item.item : item.display_name;
-            const blockValue = item.item;
-            const contextMenu = type === 'company' ? `oncontextmenu="event.preventDefault(); window.open('https://www.linkedin.com/company/${blockValue}', '_blank'); return false;"` : '';
+            const blockValue = item.item; // slug for company, title for title
+            const itemUrl = type === 'company' ? (item.url || `https://www.linkedin.com/company/${blockValue}`) : '';
+
+            // Job Title Associated Companies Logic
+            const assocId = `assoc-${index}`;
+            const hasAssoc = type === 'job_title' && item.associated_companies && item.associated_companies.length > 0;
+            const clickAction = hasAssoc ? `onclick="document.getElementById('${assocId}').classList.toggle('hidden')"` : '';
+            const cursorClass = hasAssoc || type === 'company' ? 'cursor-pointer' : 'cursor-default';
+
+            // Interaction Hints
+            let hintTitle = '';
+            if (type === 'company') hintTitle = 'Double-click to open LinkedIn page';
+            if (hasAssoc) hintTitle = 'Click to see associated companies';
+
+            // Double click for company
+            const dblClickAction = type === 'company' ? `ondblclick="window.open('${itemUrl}', '_blank')"` : '';
 
             return `
-                <div class="group flex items-center justify-between p-3 bg-gray-900/40 border border-gray-700/50 rounded-lg hover:border-blue-600/50 hover:bg-gray-800/60 transition-all cursor-default" 
-                     ${contextMenu}
-                     title="${type === 'company' ? 'Right-click to open LinkedIn' : ''}">
-                    <div class="flex-1 min-w-0 mr-4">
-                        <div class="text-sm font-bold text-white truncate group-hover:text-blue-100">${escapeHtml(displayValue)}</div>
-                        <div class="flex items-center space-x-2 mt-0.5">
-                            <div class="text-[10px] text-gray-400 uppercase tracking-tighter font-black">${item.count} dismissals</div>
-                            ${type === 'company' ? '<div class="w-1 h-1 bg-gray-700 rounded-full"></div><div class="text-[9px] text-gray-600 font-mono">ID: ' + blockValue + '</div>' : ''}
+                <div class="p-3 bg-gray-900/40 border border-gray-700/50 rounded-lg hover:border-blue-600/50 hover:bg-gray-800/60 transition-all ${cursorClass}"
+                     title="${hintTitle}"
+                     ${dblClickAction}
+                     ${clickAction}>
+                     
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1 min-w-0 mr-4">
+                            <div class="text-sm font-bold text-white truncate group-hover:text-blue-100">${escapeHtml(displayValue)}</div>
+                            <div class="flex items-center space-x-2 mt-0.5">
+                                <div class="text-[10px] text-gray-400 uppercase tracking-tighter font-black">${item.count} dismissals</div>
+                                ${type === 'company' ? '<div class="w-1 h-1 bg-gray-700 rounded-full"></div><div class="text-[9px] text-gray-600 font-mono">' + blockValue + '</div>' : ''}
+                                ${hasAssoc ? '<div class="text-[9px] text-blue-500/80 ml-2">Show Companies ⬇</div>' : ''}
+                            </div>
+                        </div>
+                        <button onclick="event.stopPropagation(); addFromSuggestion('${type}', '${blockValue.replace(/'/g, "\\'")}')" 
+                                class="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600 hover:text-white text-blue-400 rounded-md text-[10px] font-bold uppercase transition-all whitespace-nowrap shadow-lg">
+                            Add Block
+                        </button>
+                    </div>
+                    
+                    ${hasAssoc ? `
+                    <div id="${assocId}" class="hidden mt-3 pl-3 border-l-2 border-gray-700/50">
+                        <div class="text-[9px] text-gray-500 uppercase font-bold mb-1.5 tracking-wider">Associated Companies</div>
+                        <div class="flex flex-wrap gap-1.5">
+                            ${item.associated_companies.map(c =>
+                `<span class="px-2 py-1 bg-gray-800/80 rounded text-[10px] text-gray-300 border border-gray-700 hover:border-gray-500">${escapeHtml(c)}</span>`
+            ).join('')}
                         </div>
                     </div>
-                    <button onclick="addFromSuggestion('${type}', '${blockValue.replace(/'/g, "\\'")}')" 
-                            class="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600 hover:text-white text-blue-400 rounded-md text-[10px] font-bold uppercase transition-all whitespace-nowrap shadow-lg">
-                        Add Block
-                    </button>
+                    ` : ''}
                 </div>
             `;
         }).join('<div class="h-2"></div>');

@@ -396,9 +396,8 @@ def get_blocklist_suggestions(request: Request):
             cleaned = cleaned.split('linkedin.com/company/')[-1].split('?')[0].strip('/')
         current_companies.append(cleaned)
     
-    title_counts = {}
-    company_counts = {}
-    company_name_map = {} # map slug to display name
+    title_stats = {} # title -> {'count': 0, 'companies': set()}
+    company_stats = {} # slug -> {'count': 0, 'name': str, 'url': str}
 
     # Optimize: Pre-compile one regex for all title blockers
     title_block_pattern = None
@@ -418,7 +417,11 @@ def get_blocklist_suggestions(request: Request):
             t_norm = title.strip()
             # Fast Check using compiled regex
             if not (title_block_pattern and title_block_pattern.search(t_norm)):
-                title_counts[t_norm] = title_counts.get(t_norm, 0) + 1
+                if t_norm not in title_stats:
+                    title_stats[t_norm] = {'count': 0, 'companies': set()}
+                title_stats[t_norm]['count'] += 1
+                if co_name:
+                    title_stats[t_norm]['companies'].add(co_name)
         
         if co_url:
             slug = co_url.lower().strip()
@@ -426,21 +429,24 @@ def get_blocklist_suggestions(request: Request):
                 slug = slug.split('linkedin.com/company/')[-1].split('?')[0].strip('/')
             
             if slug and slug not in current_companies:
-                company_counts[slug] = company_counts.get(slug, 0) + 1
-                if co_name:
-                    company_name_map[slug] = co_name
+                if slug not in company_stats:
+                    company_stats[slug] = {'count': 0, 'name': co_name or slug, 'url': co_url}
+                company_stats[slug]['count'] += 1
+                # Update name if we get a better one (non-null)
+                if co_name and (company_stats[slug]['name'] == slug or not company_stats[slug]['name']):
+                    company_stats[slug]['name'] = co_name
 
     # Filter for > 5 dismissals
-    eligible_titles = {k: v for k, v in title_counts.items() if v >= 5}
-    eligible_companies = {k: v for k, v in company_counts.items() if v >= 5}
+    eligible_titles = {k: v for k, v in title_stats.items() if v['count'] >= 5}
+    eligible_companies = {k: v for k, v in company_stats.items() if v['count'] >= 5}
 
     # Sort all eligible items by count descending
-    sorted_title_items = sorted(eligible_titles.items(), key=lambda x: x[1], reverse=True)
+    sorted_title_items = sorted(eligible_titles.items(), key=lambda x: x[1]['count'], reverse=True)
     
     top_titles = []
     seen_title_blockers = []
     
-    for title, count in sorted_title_items:
+    for title, stats in sorted_title_items:
         if len(top_titles) >= 20:
                 break
         
@@ -454,15 +460,25 @@ def get_blocklist_suggestions(request: Request):
                 break
         
         if not is_redundant:
-            top_titles.append({"item": title, "count": count})
+            # Convert set to sorted list for JSON
+            companies_list = sorted(list(stats['companies']))
+            top_titles.append({
+                "item": title, 
+                "count": stats['count'], 
+                "associated_companies": companies_list
+            })
             seen_title_blockers.append(title)
 
     top_companies = []
-    sorted_slugs = sorted(eligible_companies.items(), key=lambda x: x[1], reverse=True)[:20]
+    sorted_slugs = sorted(eligible_companies.items(), key=lambda x: x[1]['count'], reverse=True)[:20]
     
-    for slug, count in sorted_slugs:
-        name = company_name_map.get(slug, slug)
-        top_companies.append({"item": slug, "display_name": name, "count": count})
+    for slug, stats in sorted_slugs:
+        top_companies.append({
+            "item": slug, 
+            "display_name": stats['name'], 
+            "count": stats['count'],
+            "url": stats['url']
+        })
 
     return {
         "job_titles": top_titles,
