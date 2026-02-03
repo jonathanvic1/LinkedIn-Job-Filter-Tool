@@ -105,8 +105,6 @@ class LinkedInScraper:
         self.session.headers.update(HEADERS)
         if hasattr(self, 'csrf_token') and self.csrf_token:
             self.session.headers.update({'csrf-token': self.csrf_token})
-            
-        self.log("🔧 Initialized scraper with curl_cffi Chrome 136 impersonation and Authenticated Session")
 
     def log(self, message: str, level: str = 'info'):
         """Print log to console and optionally persist to DB."""

@@ -202,11 +202,8 @@ def run_scraper_thread(params: SearchParams, user_id: str, history_id: str):
     state.scraped_jobs = []
     state.logs = [] # Clear logs on new run
     state.active_search_id = params.search_id # Set the active search ID
-    log_message("🧹 Initializing scraper session...", history_id)
     state.total_found = 0
     state.total_dismissed = 0
-    
-    log_message("🚀 Starting Scraper Background Thread...", history_id)
     
     # Read user settings (including cookie and delays)
     user_cookie = None
@@ -221,8 +218,6 @@ def run_scraper_thread(params: SearchParams, user_id: str, history_id: str):
             job_delay = settings.get('job_delay', 1.0)
             scrape_concurrency = settings.get('scrape_concurrency', 5)
             dismiss_concurrency = settings.get('dismiss_concurrency', 2)
-            if user_cookie:
-                log_message("🔑 Using user-provided LinkedIn cookie and rate limits from settings")
     
     # Read blocklists from Supabase (user-specific)
     try:
@@ -284,7 +279,6 @@ def run_scraper_thread(params: SearchParams, user_id: str, history_id: str):
         if history_id:
             try:
                 db.log_search_complete(history_id, total_found, total_dismissed, total_skipped, status)
-                log_message(f"📊 Run logged to history: {history_id}", history_id)
             except Exception as db_err:
                 log_message(f"⚠️ Failed to log run completion: {db_err}")
 
